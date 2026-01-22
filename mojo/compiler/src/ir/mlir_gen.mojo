@@ -67,8 +67,7 @@ struct MLIRGenerator:
         """
         # TODO: Implement node-specific MLIR generation
         # For now, iterate through declarations
-        for i in range(len(node.declarations)):
-            let decl = node.declarations[i]
+        for decl in node.declarations:
             # Generate MLIR for each declaration
             # self.generate_function(decl)
             pass
