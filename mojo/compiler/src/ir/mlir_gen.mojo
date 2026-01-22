@@ -530,7 +530,8 @@ struct MLIRGenerator:
         
         # Determine the operation and type
         var op_name = ""
-        var type_str = "i64"  # Default for arithmetic
+        var type_str = "i64"  # Default for arithmetic operations
+        var operand_type = "i64"  # Type for operands (can differ from result type)
         
         if bin_node.operator == "+":
             op_name = "arith.addi"
@@ -544,30 +545,38 @@ struct MLIRGenerator:
             op_name = "arith.remsi"
         elif bin_node.operator == "==":
             op_name = "arith.cmpi eq"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == "!=":
             op_name = "arith.cmpi ne"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == "<":
             op_name = "arith.cmpi slt"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == "<=":
             op_name = "arith.cmpi sle"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == ">":
             op_name = "arith.cmpi sgt"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == ">=":
             op_name = "arith.cmpi sge"
+            type_str = "i1"  # Comparison result is boolean
         elif bin_node.operator == "&&":
             op_name = "arith.andi"
             type_str = "i1"  # Boolean type
+            operand_type = "i1"
         elif bin_node.operator == "||":
             op_name = "arith.ori"
             type_str = "i1"  # Boolean type
+            operand_type = "i1"
         else:
             op_name = "arith.addi"  # Default
         
         # Generate MLIR based on operation type
         if "arith.cmpi" in op_name:
-            # Comparison operations need special syntax: arith.cmpi <predicate>, operands
-            # The result type is i1 (boolean)
-            self.emit(indent + result + " = " + op_name + ", " + left_val + ", " + right_val + " : " + type_str)
+            # Comparison operations: arith.cmpi <predicate>, <left>, <right> : <operand_type>
+            # Result type is i1 (boolean), but operand type is specified
+            self.emit(indent + result + " = " + op_name + ", " + left_val + ", " + right_val + " : " + operand_type)
         else:
             # Standard binary operations
             self.emit(indent + result + " = " + op_name + " " + left_val + ", " + right_val + " : " + type_str)
