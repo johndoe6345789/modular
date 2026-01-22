@@ -387,32 +387,32 @@ fn vector_add[size: Int](
 ## Implementation Phases
 
 ### Phase 1: Minimal Viable Compiler (3-6 months)
-- [x] Lexer and parser for basic Mojo syntax
-- [x] Type checker for simple types
-- [x] MLIR code generation for basic operations
-- [x] LLVM backend integration
-- [x] Compile and run "Hello, World!"
+- [ ] Lexer and parser for basic Mojo syntax
+- [ ] Type checker for simple types
+- [ ] MLIR code generation for basic operations
+- [ ] LLVM backend integration
+- [ ] Compile and run "Hello, World!"
 
 ### Phase 2: Core Language Features (6-12 months)
-- [x] Full type system (parametrics, traits)
-- [x] Ownership and lifetime checking
-- [x] Complete control flow (if, while, for)
-- [x] Struct definitions and methods
-- [x] Compile basic stdlib modules
+- [ ] Full type system (parametrics, traits)
+- [ ] Ownership and lifetime checking
+- [ ] Complete control flow (if, while, for)
+- [ ] Struct definitions and methods
+- [ ] Compile basic stdlib modules
 
 ### Phase 3: Advanced Features (12-18 months)
-- [x] Python interop
-- [x] Async/await
-- [x] GPU support
-- [x] Compile entire stdlib
-- [x] Optimization pipeline
+- [ ] Python interop
+- [ ] Async/await
+- [ ] GPU support
+- [ ] Compile entire stdlib
+- [ ] Optimization pipeline
 
 ### Phase 4: Production Ready (18-24 months)
-- [x] Performance parity with existing compiler
-- [x] Complete language spec coverage
-- [x] Comprehensive error messages
-- [x] IDE integration (LSP)
-- [x] Debugging support (DWARF)
+- [ ] Performance parity with existing compiler
+- [ ] Complete language spec coverage
+- [ ] Comprehensive error messages
+- [ ] IDE integration (LSP)
+- [ ] Debugging support (DWARF)
 
 ## Technical Challenges
 
