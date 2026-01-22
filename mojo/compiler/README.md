@@ -667,6 +667,7 @@ fn compile_mojo_file(source_path: String, output_path: String):
 - **[PHASE_2_COMPLETION_REPORT.md](PHASE_2_COMPLETION_REPORT.md)** - Complete Phase 2 implementation details
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Comprehensive guide for contributors
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[docs/CICD_INTEGRATION.md](docs/CICD_INTEGRATION.md)** - CI/CD setup and test infrastructure guide
 - **[Open Source Compiler Proposal](../proposals/open-source-compiler.md)** - The full design specification
 - **[examples/](examples/)** - Example Mojo programs
 
