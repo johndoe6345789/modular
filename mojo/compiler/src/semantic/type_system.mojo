@@ -60,12 +60,70 @@ struct MethodInfo:
         self.return_type = return_type
 
 
+struct TraitInfo:
+    """Information about a trait type.
+    
+    Traits define interfaces that structs must implement.
+    They contain method signatures without implementations.
+    """
+    
+    var name: String
+    var required_methods: List[MethodInfo]
+    
+    fn __init__(inout self, name: String):
+        """Initialize trait info.
+        
+        Args:
+            name: The trait name.
+        """
+        self.name = name
+        self.required_methods = List[MethodInfo]()
+    
+    fn add_required_method(inout self, name: String, return_type: Type):
+        """Add a required method signature to the trait.
+        
+        Args:
+            name: The method name.
+            return_type: The method return type.
+        """
+        self.required_methods.append(MethodInfo(name, return_type))
+    
+    fn has_method(self, method_name: String) -> Bool:
+        """Check if the trait requires a method.
+        
+        Args:
+            method_name: The method name.
+            
+        Returns:
+            True if the method is required by this trait.
+        """
+        for i in range(len(self.required_methods)):
+            if self.required_methods[i].name == method_name:
+                return True
+        return False
+    
+    fn get_method(self, method_name: String) -> MethodInfo:
+        """Get required method info by name.
+        
+        Args:
+            method_name: The method name.
+            
+        Returns:
+            The method info, or a dummy method if not found.
+        """
+        for i in range(len(self.required_methods)):
+            if self.required_methods[i].name == method_name:
+                return self.required_methods[i]
+        return MethodInfo("unknown", Type("Unknown"))
+
+
 struct StructInfo:
     """Information about a struct type."""
     
     var name: String
     var fields: List[FieldInfo]
     var methods: List[MethodInfo]
+    var implemented_traits: List[String]  # Names of traits this struct implements
     
     fn __init__(inout self, name: String):
         """Initialize struct info.
@@ -76,6 +134,7 @@ struct StructInfo:
         self.name = name
         self.fields = List[FieldInfo]()
         self.methods = List[MethodInfo]()
+        self.implemented_traits = List[String]()
     
     fn add_field(inout self, name: String, field_type: Type):
         """Add a field to the struct.
@@ -94,6 +153,14 @@ struct StructInfo:
             return_type: The method return type.
         """
         self.methods.append(MethodInfo(name, return_type))
+    
+    fn add_trait(inout self, trait_name: String):
+        """Mark this struct as implementing a trait.
+        
+        Args:
+            trait_name: The name of the trait.
+        """
+        self.implemented_traits.append(trait_name)
     
     fn get_field_type(self, field_name: String) -> Type:
         """Get the type of a field by name.
@@ -249,11 +316,13 @@ struct TypeContext:
     
     var types: Dict[String, Type]
     var structs: Dict[String, StructInfo]  # Store struct definitions
+    var traits: Dict[String, TraitInfo]    # Store trait definitions
     
     fn __init__(inout self):
         """Initialize a type context with builtin types."""
         self.types = Dict[String, Type]()
         self.structs = Dict[String, StructInfo]()
+        self.traits = Dict[String, TraitInfo]()
         # Register builtin types
         self.register_builtin_types()
     
@@ -282,6 +351,24 @@ struct TypeContext:
         # Special types
         self.types["NoneType"] = Type("NoneType")
         self.types["Unknown"] = Type("Unknown")
+        
+        # Register builtin collection traits
+        self._register_builtin_traits()
+    
+    fn _register_builtin_traits(inout self):
+        """Register builtin traits like Iterable.
+        
+        These traits enable collection iteration and other standard protocols.
+        """
+        # Iterable trait - enables for loop iteration
+        var iterable_trait = TraitInfo("Iterable")
+        iterable_trait.add_required_method("__iter__", Type("Iterator"))
+        self.register_trait(iterable_trait)
+        
+        # Iterator trait - returned by __iter__
+        var iterator_trait = TraitInfo("Iterator")
+        iterator_trait.add_required_method("__next__", Type("Optional"))
+        self.register_trait(iterator_trait)
     
     fn register_type(inout self, name: String, type: Type):
         """Register a user-defined type.
@@ -324,6 +411,38 @@ struct TypeContext:
         """
         return name in self.structs
     
+    fn register_trait(inout self, trait_info: TraitInfo):
+        """Register a trait type.
+        
+        Args:
+            trait_info: The trait information to register.
+        """
+        self.traits[trait_info.name] = trait_info
+        # Also register as a type for type checking
+        self.types[trait_info.name] = Type(trait_info.name)
+    
+    fn lookup_trait(self, name: String) -> TraitInfo:
+        """Look up a trait by name.
+        
+        Args:
+            name: The name of the trait.
+            
+        Returns:
+            The trait info, or an empty trait if not found.
+        """
+        return self.traits.get(name, TraitInfo("Unknown"))
+    
+    fn is_trait(self, name: String) -> Bool:
+        """Check if a type is a trait.
+        
+        Args:
+            name: The type name.
+            
+        Returns:
+            True if the type is a trait.
+        """
+        return name in self.traits
+    
     fn lookup_type(self, name: String) -> Type:
         """Look up a type by name.
         
@@ -336,15 +455,37 @@ struct TypeContext:
         # TODO: Implement type lookup with error handling
         return self.types.get(name, Type("Unknown"))
     
-    fn check_trait_conformance(self, type: Type, trait_name: String) -> Bool:
-        """Check if a type conforms to a trait.
+    fn check_trait_conformance(self, struct_name: String, trait_name: String) -> Bool:
+        """Check if a struct conforms to a trait.
+        
+        Conformance requires the struct to implement all required methods
+        of the trait with matching signatures.
         
         Args:
-            type: The type to check.
+            struct_name: The name of the struct to check.
             trait_name: The name of the trait.
             
         Returns:
-            True if the type conforms to the trait.
+            True if the struct conforms to the trait.
         """
-        # TODO: Implement trait conformance checking
-        return False
+        # Look up struct and trait
+        if not self.is_struct(struct_name) or not self.is_trait(trait_name):
+            return False
+        
+        let struct_info = self.lookup_struct(struct_name)
+        let trait_info = self.lookup_trait(trait_name)
+        
+        # Check that struct implements all required methods
+        for i in range(len(trait_info.required_methods)):
+            let required_method = trait_info.required_methods[i]
+            
+            # Check if struct has this method
+            if not struct_info.has_method(required_method.name):
+                return False
+            
+            # Check if method signatures match (return type compatibility)
+            let struct_method = struct_info.get_method(required_method.name)
+            if not struct_method.return_type.is_compatible_with(required_method.return_type):
+                return False
+        
+        return True

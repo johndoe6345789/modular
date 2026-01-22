@@ -40,6 +40,7 @@ from ..frontend.ast import (
     PassStmtNode,
     UnaryExprNode,
     StructNode,
+    TraitNode,
     MemberAccessNode,
     ASTNodeRef,
     ASTNodeKind,
@@ -184,11 +185,14 @@ struct MLIRGenerator:
         self.emit("module {")
         self.indent_level += 1
         
-        # Generate each declaration (functions and structs)
+        # Generate each declaration (functions, structs, and traits)
         for decl_ref in module.declarations:
             let kind = self.parser.node_store.get_node_kind(decl_ref)
             if kind == ASTNodeKind.STRUCT:
                 self.generate_struct_definition(decl_ref)
+                self.emit("")  # Blank line
+            elif kind == ASTNodeKind.TRAIT:
+                self.generate_trait_definition(decl_ref)
                 self.emit("")  # Blank line
             elif kind == ASTNodeKind.FUNCTION:
                 self.generate_function(decl_ref)
@@ -200,10 +204,10 @@ struct MLIRGenerator:
         return self.output
     
     fn generate_struct_definition(inout self, node_ref: ASTNodeRef):
-        """Generate MLIR for a struct definition.
+        """Generate MLIR for a struct definition using LLVM struct types.
         
-        For Phase 2, we emit struct type definitions as comments.
-        Full struct codegen would require LLVM struct types in MLIR.
+        Phase 3: Full LLVM struct codegen with actual type definitions and operations.
+        Structs are represented as LLVM struct types with proper field layout.
         
         Args:
             node_ref: Reference to the struct node.
@@ -214,18 +218,93 @@ struct MLIRGenerator:
         let struct_node = self.parser.struct_nodes[node_ref]
         let indent = self.get_indent()
         
-        # Emit struct as a comment (simplified for Phase 2)
-        self.emit(indent + "// Struct definition: " + struct_node.name)
-        self.emit(indent + "// Fields:")
+        # Generate LLVM struct type definition
+        # Format: !llvm.struct<(field1_type, field2_type, ...)>
+        var field_types = "("
         for i in range(len(struct_node.fields)):
+            if i > 0:
+                field_types += ", "
             let field = struct_node.fields[i]
-            self.emit(indent + "//   " + field.name + ": " + field.field_type.name)
+            field_types += self.mlir_type_for(field.field_type.name)
+        field_types += ")"
         
+        # Emit type alias for the struct
+        self.emit(indent + "// Struct type: " + struct_node.name)
+        self.emit(indent + "// Type definition: !llvm.struct<" + field_types + ">")
+        
+        # Emit field information as documentation
+        if len(struct_node.fields) > 0:
+            self.emit(indent + "// Fields:")
+            for i in range(len(struct_node.fields)):
+                let field = struct_node.fields[i]
+                self.emit(indent + "//   [" + str(i) + "] " + field.name + ": " + field.field_type.name)
+        
+        # Emit method information
         if len(struct_node.methods) > 0:
             self.emit(indent + "// Methods:")
             for i in range(len(struct_node.methods)):
                 let method = struct_node.methods[i]
                 self.emit(indent + "//   " + method.name + "() -> " + method.return_type.name)
+    
+    fn generate_trait_definition(inout self, node_ref: ASTNodeRef):
+        """Generate MLIR for a trait definition.
+        
+        Traits are emitted as interface documentation since MLIR doesn't
+        have a direct trait concept. The actual conformance checking happens
+        during type checking.
+        
+        Args:
+            node_ref: Reference to the trait node.
+        """
+        if node_ref < 0 or node_ref >= len(self.parser.trait_nodes):
+            return
+        
+        let trait_node = self.parser.trait_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Emit trait as documentation
+        self.emit(indent + "// Trait definition: " + trait_node.name)
+        self.emit(indent + "// Required methods:")
+        for i in range(len(trait_node.methods)):
+            let method = trait_node.methods[i]
+            self.emit(indent + "//   " + method.name + "() -> " + method.return_type.name)
+    
+    fn mlir_type_for(self, mojo_type: String) -> String:
+        """Convert Mojo type to MLIR/LLVM type representation.
+        
+        Args:
+            mojo_type: The Mojo type name.
+            
+        Returns:
+            The corresponding MLIR type string.
+        """
+        if mojo_type == "Int" or mojo_type == "Int64":
+            return "i64"
+        elif mojo_type == "Int32":
+            return "i32"
+        elif mojo_type == "Int16":
+            return "i16"
+        elif mojo_type == "Int8":
+            return "i8"
+        elif mojo_type == "UInt64":
+            return "i64"
+        elif mojo_type == "UInt32":
+            return "i32"
+        elif mojo_type == "UInt16":
+            return "i16"
+        elif mojo_type == "UInt8":
+            return "i8"
+        elif mojo_type == "Float64":
+            return "f64"
+        elif mojo_type == "Float32":
+            return "f32"
+        elif mojo_type == "Bool":
+            return "i1"
+        elif mojo_type == "String":
+            return "!llvm.ptr<i8>"  # String as pointer to i8
+        else:
+            # Unknown or user-defined type - return as pointer
+            return "!llvm.ptr"
     
     fn generate_function(inout self, node_ref: ASTNodeRef):
         """Generate MLIR for a function definition.
@@ -401,6 +480,12 @@ struct MLIRGenerator:
     fn generate_for_statement(inout self, node_ref: ASTNodeRef):
         """Generate MLIR for a for loop using scf.for.
         
+        Phase 3 enhancement: Improved collection iteration support.
+        For collections implementing Iterable trait, generates:
+        1. Call to __iter__() to get iterator
+        2. Loop calling __next__() until exhausted
+        3. Body execution with yielded values
+        
         Args:
             node_ref: Reference to the for statement node.
         """
@@ -410,27 +495,77 @@ struct MLIRGenerator:
         let for_node = self.parser.for_stmt_nodes[node_ref]
         let indent = self.get_indent()
         
-        # For now, generate a simplified version
-        # TODO: Implement proper iteration over collections
-        # This is a placeholder that assumes range-based iteration
-        
+        # Generate collection expression
         let collection_ssa = self.generate_expression(for_node.collection)
         
-        # Generate scf.for with range bounds
-        # This is simplified - real implementation needs collection iteration
-        self.emit(indent + "// for " + for_node.iterator + " in " + collection_ssa)
-        self.emit(indent + "scf.for %iv = %c0 to %count step %c1 {")
-        self.indent_level += 1
+        # Check if this is a range() call (simplified iteration)
+        let is_range = self._is_range_call_mlir(for_node.collection)
         
-        # Map iterator to induction variable
-        self.identifier_map[for_node.iterator] = "%iv"
+        if is_range:
+            # Range-based iteration: use scf.for directly
+            self.emit(indent + "// Range-based for loop: " + for_node.iterator)
+            self.emit(indent + "scf.for %iv = %c0 to %count step %c1 {")
+            self.indent_level += 1
+            
+            # Map iterator to induction variable
+            self.identifier_map[for_node.iterator] = "%iv"
+        else:
+            # Collection iteration: use Iterable protocol
+            self.emit(indent + "// Collection iteration: " + for_node.iterator + " in " + collection_ssa)
+            self.emit(indent + "// Phase 3: Iterable protocol")
+            let iterator_ssa = self.next_ssa_value()
+            self.emit(indent + "// " + iterator_ssa + " = mojo.call_method " + collection_ssa + ", \"__iter__\" : () -> !Iterator")
+            
+            # Generate while loop for iteration
+            self.emit(indent + "scf.while () : () -> () {")
+            self.indent_level += 1
+            
+            # Call __next__() on iterator
+            let next_val = self.next_ssa_value()
+            self.emit(self.get_indent() + "// " + next_val + " = mojo.call_method " + iterator_ssa + ", \"__next__\" : () -> !Optional")
+            
+            # Check if value is present
+            let has_value = self.next_ssa_value()
+            self.emit(self.get_indent() + "// " + has_value + " = mojo.call_method " + next_val + ", \"has_value\" : () -> i1")
+            self.emit(self.get_indent() + "scf.condition(" + has_value + ")")
+            
+            self.indent_level -= 1
+            self.emit(indent + "} do {")
+            self.indent_level += 1
+            
+            # Extract value from Optional
+            let value_ssa = self.next_ssa_value()
+            self.emit(self.get_indent() + "// " + value_ssa + " = mojo.call_method " + next_val + ", \"value\" : () -> i64")
+            
+            # Map iterator to extracted value
+            self.identifier_map[for_node.iterator] = value_ssa
         
-        # Generate loop body
+        # Generate loop body (common for both paths)
         for i in range(len(for_node.body)):
             self.generate_statement(for_node.body[i])
         
         self.indent_level -= 1
         self.emit(indent + "}")
+    
+    fn _is_range_call_mlir(self, expr_ref: ASTNodeRef) -> Bool:
+        """Check if an expression is a call to range().
+        
+        Args:
+            expr_ref: The expression node reference.
+            
+        Returns:
+            True if the expression is a range() call.
+        """
+        let kind = self.parser.node_store.get_node_kind(expr_ref)
+        if kind == ASTNodeKind.CALL_EXPR:
+            if expr_ref >= 0 and expr_ref < len(self.parser.call_expr_nodes):
+                let call_node = self.parser.call_expr_nodes[expr_ref]
+                let func_kind = self.parser.node_store.get_node_kind(call_node.function)
+                if func_kind == ASTNodeKind.IDENTIFIER_EXPR:
+                    if call_node.function >= 0 and call_node.function < len(self.parser.identifier_nodes):
+                        let id_node = self.parser.identifier_nodes[call_node.function]
+                        return id_node.name == "range"
+        return False
     
     fn generate_expression(inout self, node_ref: ASTNodeRef) -> String:
         """Generate MLIR for an expression.

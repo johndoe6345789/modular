@@ -182,8 +182,16 @@ struct Parser:
                 let func = self.parse_function()
                 # In a real implementation, we would add the function to the module
                 # module.add_declaration(func)
+            # Parse struct definitions
+            elif self.current_token.kind.kind == TokenKind.STRUCT:
+                let struct_def = self.parse_struct()
+                # Store struct for later processing
+            # Parse trait definitions
+            elif self.current_token.kind.kind == TokenKind.TRAIT:
+                let trait_def = self.parse_trait()
+                # Store trait for later processing
             else:
-                self.error("Expected function or struct definition")
+                self.error("Expected function, struct, or trait definition")
                 self.advance()  # Skip the problematic token
         
         return module
@@ -291,6 +299,11 @@ struct Parser:
                 self.error("Expected 'var' for field or 'fn' for method in struct body")
                 self.advance()  # Skip unexpected token
         
+        # Store struct node
+        self.struct_nodes.append(struct_node)
+        let node_ref = len(self.struct_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.STRUCT)
+        
         return struct_node
     
     fn parse_struct_field(inout self) -> FieldNode:
@@ -328,6 +341,66 @@ struct Parser:
             field.default_value = self.parse_expression()
         
         return field
+    
+    fn parse_trait(inout self) -> TraitNode:
+        """Parse a trait definition.
+        
+        Traits define interfaces that structs can implement.
+        Example:
+            trait Hashable:
+                fn hash(self) -> Int
+                fn equals(self, other: Self) -> Bool
+        
+        Returns:
+            The trait AST node.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'trait'
+        
+        # Parse trait name
+        if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+            self.error("Expected trait name")
+            return TraitNode("Error", location)
+        
+        let name = self.current_token.text
+        self.advance()
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after trait name")
+        else:
+            self.advance()
+        
+        # Create trait node
+        var trait_node = TraitNode(name, location)
+        
+        # Expect newline and indentation
+        if self.current_token.kind.kind == TokenKind.NEWLINE:
+            self.advance()
+        
+        # Parse trait body (method signatures)
+        while (self.current_token.kind.kind != TokenKind.EOF and
+               self.current_token.kind.kind != TokenKind.DEDENT):
+            
+            # Skip extra newlines
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
+                continue
+            
+            # Traits can only contain method signatures (fn keyword)
+            if self.current_token.kind.kind == TokenKind.FN:
+                let method_sig = self.parse_function()
+                trait_node.methods.append(method_sig)
+            else:
+                self.error("Expected method signature in trait body (traits can only contain 'fn' declarations)")
+                self.advance()  # Skip unexpected token
+        
+        # Store trait node
+        self.trait_nodes.append(trait_node)
+        let node_ref = len(self.trait_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.TRAIT)
+        
+        return trait_node
     
     fn parse_statement(inout self) -> ASTNodeRef:
         """Parse a statement.
