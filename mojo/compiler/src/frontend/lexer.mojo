@@ -154,12 +154,124 @@ struct Lexer:
         Returns:
             The next token in the source stream.
         """
-        # TODO: Implement tokenization logic
-        # This is a placeholder implementation
+        self.skip_whitespace()
+        
+        # Check for EOF
+        if self.position >= len(self.source):
+            return Token(
+                TokenKind(TokenKind.EOF),
+                "",
+                SourceLocation(self.filename, self.line, self.column)
+            )
+        
+        let start_line = self.line
+        let start_column = self.column
+        let ch = self.peek_char()
+        
+        # Handle comments
+        if ch == "#":
+            self.skip_comment()
+            return self.next_token()
+        
+        # Handle newlines
+        if ch == "\n":
+            self.advance()
+            return Token(
+                TokenKind(TokenKind.NEWLINE),
+                "\n",
+                SourceLocation(self.filename, start_line, start_column)
+            )
+        
+        # Handle string literals
+        if ch == "\"" or ch == "'":
+            let string_val = self.read_string()
+            return Token(
+                TokenKind(TokenKind.STRING_LITERAL),
+                string_val,
+                SourceLocation(self.filename, start_line, start_column)
+            )
+        
+        # Handle numbers
+        if self.is_digit(ch):
+            return self.read_number()
+        
+        # Handle identifiers and keywords
+        if self.is_alpha(ch) or ch == "_":
+            let text = self.read_identifier()
+            if self.is_keyword(text):
+                return Token(
+                    self.keyword_kind(text),
+                    text,
+                    SourceLocation(self.filename, start_line, start_column)
+                )
+            return Token(
+                TokenKind(TokenKind.IDENTIFIER),
+                text,
+                SourceLocation(self.filename, start_line, start_column)
+            )
+        
+        # Handle operators and punctuation
+        if ch == "+":
+            self.advance()
+            return Token(TokenKind(TokenKind.PLUS), "+", SourceLocation(self.filename, start_line, start_column))
+        if ch == "-":
+            self.advance()
+            if self.peek_char() == ">":
+                self.advance()
+                return Token(TokenKind(TokenKind.ARROW), "->", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.MINUS), "-", SourceLocation(self.filename, start_line, start_column))
+        if ch == "*":
+            self.advance()
+            if self.peek_char() == "*":
+                self.advance()
+                return Token(TokenKind(TokenKind.DOUBLE_STAR), "**", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.STAR), "*", SourceLocation(self.filename, start_line, start_column))
+        if ch == "/":
+            self.advance()
+            return Token(TokenKind(TokenKind.SLASH), "/", SourceLocation(self.filename, start_line, start_column))
+        if ch == "=":
+            self.advance()
+            if self.peek_char() == "=":
+                self.advance()
+                return Token(TokenKind(TokenKind.DOUBLE_EQUAL), "==", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.EQUAL), "=", SourceLocation(self.filename, start_line, start_column))
+        if ch == "(":
+            self.advance()
+            return Token(TokenKind(TokenKind.LEFT_PAREN), "(", SourceLocation(self.filename, start_line, start_column))
+        if ch == ")":
+            self.advance()
+            return Token(TokenKind(TokenKind.RIGHT_PAREN), ")", SourceLocation(self.filename, start_line, start_column))
+        if ch == "[":
+            self.advance()
+            return Token(TokenKind(TokenKind.LEFT_BRACKET), "[", SourceLocation(self.filename, start_line, start_column))
+        if ch == "]":
+            self.advance()
+            return Token(TokenKind(TokenKind.RIGHT_BRACKET), "]", SourceLocation(self.filename, start_line, start_column))
+        if ch == "{":
+            self.advance()
+            return Token(TokenKind(TokenKind.LEFT_BRACE), "{", SourceLocation(self.filename, start_line, start_column))
+        if ch == "}":
+            self.advance()
+            return Token(TokenKind(TokenKind.RIGHT_BRACE), "}", SourceLocation(self.filename, start_line, start_column))
+        if ch == ",":
+            self.advance()
+            return Token(TokenKind(TokenKind.COMMA), ",", SourceLocation(self.filename, start_line, start_column))
+        if ch == ":":
+            self.advance()
+            return Token(TokenKind(TokenKind.COLON), ":", SourceLocation(self.filename, start_line, start_column))
+        if ch == "@":
+            self.advance()
+            return Token(TokenKind(TokenKind.AT), "@", SourceLocation(self.filename, start_line, start_column))
+        if ch == ".":
+            self.advance()
+            return Token(TokenKind(TokenKind.DOT), ".", SourceLocation(self.filename, start_line, start_column))
+        
+        # Unknown character - return error token
+        self.advance()
         return Token(
-            TokenKind(TokenKind.EOF),
-            "",
-            SourceLocation(self.filename, self.line, self.column)
+            TokenKind(TokenKind.ERROR),
+            ch,
+            SourceLocation(self.filename, start_line, start_column)
         )
     
     fn peek_char(self) -> String:
@@ -168,24 +280,33 @@ struct Lexer:
         Returns:
             The current character, or empty string if at EOF.
         """
-        # TODO: Implement character peeking
-        return ""
+        if self.position >= len(self.source):
+            return ""
+        return self.source[self.position]
     
     fn advance(inout self):
         """Advance to the next character in the source."""
-        # TODO: Implement character advancement with line/column tracking
-        self.position += 1
-        self.column += 1
+        if self.position < len(self.source):
+            if self.source[self.position] == "\n":
+                self.line += 1
+                self.column = 1
+            else:
+                self.column += 1
+            self.position += 1
     
     fn skip_whitespace(inout self):
         """Skip whitespace characters (except newlines for indentation tracking)."""
-        # TODO: Implement whitespace skipping
-        pass
+        while self.position < len(self.source):
+            let ch = self.peek_char()
+            if ch == " " or ch == "\t" or ch == "\r":
+                self.advance()
+            else:
+                break
     
     fn skip_comment(inout self):
         """Skip a comment (# to end of line)."""
-        # TODO: Implement comment skipping
-        pass
+        while self.position < len(self.source) and self.peek_char() != "\n":
+            self.advance()
     
     fn read_identifier(inout self) -> String:
         """Read an identifier or keyword.
@@ -193,8 +314,15 @@ struct Lexer:
         Returns:
             The identifier text.
         """
-        # TODO: Implement identifier reading
-        return ""
+        var result = String("")
+        while self.position < len(self.source):
+            let ch = self.peek_char()
+            if self.is_alpha(ch) or self.is_digit(ch) or ch == "_":
+                result += ch
+                self.advance()
+            else:
+                break
+        return result
     
     fn read_number(inout self) -> Token:
         """Read a numeric literal (integer or float).
@@ -202,12 +330,35 @@ struct Lexer:
         Returns:
             A token representing the number.
         """
-        # TODO: Implement number reading
-        return Token(
-            TokenKind(TokenKind.INTEGER_LITERAL),
-            "0",
-            SourceLocation(self.filename, self.line, self.column)
-        )
+        let start_line = self.line
+        let start_column = self.column
+        var result = String("")
+        var is_float = False
+        
+        while self.position < len(self.source):
+            let ch = self.peek_char()
+            if self.is_digit(ch):
+                result += ch
+                self.advance()
+            elif ch == "." and not is_float:
+                is_float = True
+                result += ch
+                self.advance()
+            else:
+                break
+        
+        if is_float:
+            return Token(
+                TokenKind(TokenKind.FLOAT_LITERAL),
+                result,
+                SourceLocation(self.filename, start_line, start_column)
+            )
+        else:
+            return Token(
+                TokenKind(TokenKind.INTEGER_LITERAL),
+                result,
+                SourceLocation(self.filename, start_line, start_column)
+            )
     
     fn read_string(inout self) -> String:
         """Read a string literal.
@@ -215,8 +366,38 @@ struct Lexer:
         Returns:
             The string content (without quotes).
         """
-        # TODO: Implement string reading with escape sequences
-        return ""
+        let quote = self.peek_char()
+        self.advance()  # Skip opening quote
+        
+        var result = String("")
+        while self.position < len(self.source):
+            let ch = self.peek_char()
+            if ch == quote:
+                self.advance()  # Skip closing quote
+                break
+            elif ch == "\\":
+                self.advance()
+                # Handle escape sequences
+                if self.position < len(self.source):
+                    let escaped = self.peek_char()
+                    if escaped == "n":
+                        result += "\n"
+                    elif escaped == "t":
+                        result += "\t"
+                    elif escaped == "r":
+                        result += "\r"
+                    elif escaped == "\\":
+                        result += "\\"
+                    elif escaped == quote:
+                        result += quote
+                    else:
+                        result += escaped
+                    self.advance()
+            else:
+                result += ch
+                self.advance()
+        
+        return result
     
     fn is_keyword(self, text: String) -> Bool:
         """Check if a string is a keyword.
@@ -227,7 +408,20 @@ struct Lexer:
         Returns:
             True if the text is a keyword, False otherwise.
         """
-        # TODO: Implement keyword checking
+        if text == "fn" or text == "struct" or text == "trait":
+            return True
+        if text == "var" or text == "def" or text == "alias" or text == "let":
+            return True
+        if text == "if" or text == "else" or text == "elif":
+            return True
+        if text == "while" or text == "for" or text == "in":
+            return True
+        if text == "return" or text == "break" or text == "continue" or text == "pass":
+            return True
+        if text == "import" or text == "from" or text == "as":
+            return True
+        if text == "True" or text == "False":
+            return True
         return False
     
     fn keyword_kind(self, text: String) -> TokenKind:
@@ -239,5 +433,74 @@ struct Lexer:
         Returns:
             The corresponding TokenKind.
         """
-        # TODO: Implement keyword to TokenKind mapping
+        if text == "fn":
+            return TokenKind(TokenKind.FN)
+        if text == "struct":
+            return TokenKind(TokenKind.STRUCT)
+        if text == "trait":
+            return TokenKind(TokenKind.TRAIT)
+        if text == "var":
+            return TokenKind(TokenKind.VAR)
+        if text == "def":
+            return TokenKind(TokenKind.DEF)
+        if text == "alias":
+            return TokenKind(TokenKind.ALIAS)
+        if text == "let":
+            return TokenKind(TokenKind.LET)
+        if text == "if":
+            return TokenKind(TokenKind.IF)
+        if text == "else":
+            return TokenKind(TokenKind.ELSE)
+        if text == "elif":
+            return TokenKind(TokenKind.ELIF)
+        if text == "while":
+            return TokenKind(TokenKind.WHILE)
+        if text == "for":
+            return TokenKind(TokenKind.FOR)
+        if text == "in":
+            return TokenKind(TokenKind.IN)
+        if text == "return":
+            return TokenKind(TokenKind.RETURN)
+        if text == "break":
+            return TokenKind(TokenKind.BREAK)
+        if text == "continue":
+            return TokenKind(TokenKind.CONTINUE)
+        if text == "pass":
+            return TokenKind(TokenKind.PASS)
+        if text == "import":
+            return TokenKind(TokenKind.IMPORT)
+        if text == "from":
+            return TokenKind(TokenKind.FROM)
+        if text == "as":
+            return TokenKind(TokenKind.AS)
+        if text == "True" or text == "False":
+            return TokenKind(TokenKind.BOOL_LITERAL)
         return TokenKind(TokenKind.IDENTIFIER)
+    
+    fn is_alpha(self, ch: String) -> Bool:
+        """Check if a character is alphabetic.
+        
+        Args:
+            ch: The character to check.
+            
+        Returns:
+            True if alphabetic, False otherwise.
+        """
+        if len(ch) != 1:
+            return False
+        let code = ord(ch)
+        return (code >= ord("a") and code <= ord("z")) or (code >= ord("A") and code <= ord("Z"))
+    
+    fn is_digit(self, ch: String) -> Bool:
+        """Check if a character is a digit.
+        
+        Args:
+            ch: The character to check.
+            
+        Returns:
+            True if digit, False otherwise.
+        """
+        if len(ch) != 1:
+            return False
+        let code = ord(ch)
+        return code >= ord("0") and code <= ord("9")
