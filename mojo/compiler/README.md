@@ -2,7 +2,7 @@
 
 This directory contains the implementation of the open source Mojo compiler as outlined in [the compiler proposal](../proposals/open-source-compiler.md).
 
-## Status: Phase 1 - Foundation (55% Complete)
+## Status: Phase 1 - Foundation (60% Complete)
 
 The compiler structure is in place with significant progress on frontend and backend:
 
@@ -17,6 +17,12 @@ The compiler structure is in place with significant progress on frontend and bac
 ### Recent Progress
 
 **Latest Updates (2026-01-22)**:
+- ✅ Fixed critical import issues - added proper `Dict`, `List`, `Optional` imports
+- ✅ Fixed type system to use correct Mojo stdlib types
+- ✅ Removed invalid `ASTNode` import that prevented compilation
+- ✅ Added file I/O capability using `pathlib.Path`
+- ✅ Compiler can now read source files from disk
+- ✅ Added file existence validation
 - ✅ Enhanced type system with full builtin type support and compatibility checking
 - ✅ Implemented MLIR type mapping (Mojo types → MLIR types)
 - ✅ Enhanced LLVM backend with IR generation structure
@@ -32,8 +38,9 @@ The compiler structure is in place with significant progress on frontend and bac
 - ✅ Created comprehensive developer documentation
 
 **What Works Now**:
+- Reading Mojo source files from disk
 - Tokenizing Mojo source files
-- Parsing basic function definitions
+- Parsing basic function definitions (signatures only)
 - Building AST structure for simple programs
 - Error tracking and source location reporting
 - Type system with full builtin type support
@@ -328,7 +335,7 @@ mojo-compiler test ./test/
 
 ## Implementation Status
 
-### Phase 1: Minimal Viable Compiler - **55% Complete**
+### Phase 1: Minimal Viable Compiler - **60% Complete**
 
 **Goal**: Compile and run "Hello, World!"
 
@@ -337,10 +344,13 @@ mojo-compiler test ./test/
 - [x] AST node definitions (complete)
 - [x] Parser for functions and expressions (60%)
 - [x] Type system with builtin types (70%)
+- [x] File I/O for reading source files (complete)
+- [x] Fixed import system (Dict, List, Optional) (complete)
 - [🔄] MLIR Generator with type mapping (40%)
 - [🔄] Optimizer framework (30%)
 - [🔄] LLVM Backend structure (35%)
-- [ ] Complete type checker
+- [ ] Complete type checker implementation
+- [ ] Complete parser (parameter parsing, function bodies)
 - [ ] Complete MLIR code generation
 - [ ] Integrate with MLIR/LLVM tools
 - [ ] Compile and run "Hello, World!"
@@ -443,6 +453,8 @@ Phase 1 will be considered complete when:
 - [x] Type system is implemented (70% done)
 - [x] MLIR type mapping is complete (done)
 - [x] Backend structure is in place (done)
+- [x] File I/O implemented (done)
+- [x] Import system fixed (done)
 - [ ] Lexer passes all tests (needs indentation)
 - [ ] Parser can parse simple programs (needs completion)
 - [ ] Type checker validates simple programs
@@ -451,7 +463,7 @@ Phase 1 will be considered complete when:
 - [ ] Hello World program compiles and runs
 - [x] Documentation is complete and accurate (done)
 
-**Current Progress**: ~55% of Phase 1 complete
+**Current Progress**: ~60% of Phase 1 complete
 
 ## License
 
