@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["large-oss-linux"]
+        os: ["linux"]
 
     runs-on: ${{ matrix.os }}
 
