@@ -1,0 +1,52 @@
+load("//bazel:api.bzl", "mojo_library")
+
+package(default_visibility = ["//mojo:__subpackages__"])
+
+# Main compiler library
+mojo_library(
+    name = "compiler",
+    srcs = ["__init__.mojo"],
+    deps = [
+        ":frontend",
+        ":semantic",
+        ":ir",
+        ":codegen",
+        ":runtime",
+    ],
+)
+
+# Frontend: Lexer and Parser
+mojo_library(
+    name = "frontend",
+    srcs = glob(["frontend/*.mojo"]),
+)
+
+# Semantic Analysis: Type Checker and Symbol Table
+mojo_library(
+    name = "semantic",
+    srcs = glob(["semantic/*.mojo"]),
+    deps = [":frontend"],
+)
+
+# IR Generation: MLIR Generation
+mojo_library(
+    name = "ir",
+    srcs = glob(["ir/*.mojo"]),
+    deps = [
+        ":frontend",
+        ":semantic",
+    ],
+)
+
+# Code Generation: Optimizer and LLVM Backend
+mojo_library(
+    name = "codegen",
+    srcs = glob(["codegen/*.mojo"]),
+    deps = [":ir"],
+)
+
+# Runtime Support
+mojo_library(
+    name = "runtime",
+    srcs = glob(["runtime/*.mojo"]),
+)
