@@ -219,8 +219,10 @@ struct Type:
     var name: String
     var is_parametric: Bool
     var is_reference: Bool
+    var is_mutable_reference: Bool  # &mut T
     var is_struct: Bool  # Track if this is a struct type
-    var element_type: Optional[String]  # For containers like List[T]
+    var type_params: List[Type]  # Type parameters for generics
+    var element_type: Optional[String]  # For containers like List[T] (deprecated in favor of type_params)
     
     fn __init__(inout self, name: String, is_parametric: Bool = False, is_reference: Bool = False, is_struct: Bool = False):
         """Initialize a type.
@@ -234,7 +236,9 @@ struct Type:
         self.name = name
         self.is_parametric = is_parametric
         self.is_reference = is_reference
+        self.is_mutable_reference = False
         self.is_struct = is_struct
+        self.type_params = List[Type]()
         self.element_type = None
     
     fn is_builtin(self) -> Bool:
@@ -298,6 +302,41 @@ struct Type:
             return True
         
         return False
+    
+    fn is_generic(self) -> Bool:
+        """Check if this is a generic type (has type parameters).
+        
+        Returns:
+            True if this type has type parameters.
+        """
+        return self.is_parametric and len(self.type_params) > 0
+    
+    fn substitute_type_params(self, substitutions: Dict[String, Type]) -> Type:
+        """Substitute type parameters with concrete types.
+        
+        This is used for monomorphization of generic types.
+        For example, substituting T -> Int in List[T] produces List[Int].
+        
+        Args:
+            substitutions: Map from type parameter names to concrete types.
+            
+        Returns:
+            A new Type with type parameters substituted.
+        """
+        # If this is a type parameter itself, substitute it
+        if self.name in substitutions.keys():
+            return substitutions[self.name]
+        
+        # If this is a parametric type, recursively substitute type parameters
+        if self.is_parametric and len(self.type_params) > 0:
+            var result = Type(self.name, is_parametric=True, is_reference=self.is_reference, is_struct=self.is_struct)
+            result.is_mutable_reference = self.is_mutable_reference
+            for i in range(len(self.type_params)):
+                result.type_params.append(self.type_params[i].substitute_type_params(substitutions))
+            return result
+        
+        # Otherwise, return self unchanged
+        return self
     
     fn __eq__(self, other: Type) -> Bool:
         """Check equality with another type."""
@@ -489,3 +528,147 @@ struct TypeContext:
                 return False
         
         return True
+
+
+struct TypeInferenceContext:
+    """Context for type inference.
+    
+    Used to infer types from expressions and initializers.
+    Phase 4 feature.
+    """
+    
+    var inferred_types: Dict[String, Type]  # Variable name -> inferred type
+    
+    fn __init__(inout self):
+        """Initialize type inference context."""
+        self.inferred_types = Dict[String, Type]()
+    
+    fn infer_from_literal(self, literal_value: String, literal_kind: String) -> Type:
+        """Infer type from a literal value.
+        
+        Args:
+            literal_value: The literal value as a string.
+            literal_kind: The kind of literal ("int", "float", "string", "bool").
+            
+        Returns:
+            The inferred type.
+        """
+        if literal_kind == "int":
+            return Type("Int")
+        elif literal_kind == "float":
+            return Type("Float64")
+        elif literal_kind == "string":
+            return Type("String")
+        elif literal_kind == "bool":
+            return Type("Bool")
+        else:
+            return Type("Unknown")
+    
+    fn infer_from_binary_expr(self, left_type: Type, right_type: Type, operator: String) -> Type:
+        """Infer type from a binary expression.
+        
+        Args:
+            left_type: Type of the left operand.
+            right_type: Type of the right operand.
+            operator: The binary operator.
+            
+        Returns:
+            The inferred result type.
+        """
+        # Comparison operators return Bool
+        if operator in ["==", "!=", "<", ">", "<=", ">=", "&&", "||"]:
+            return Type("Bool")
+        
+        # Arithmetic operators return the operand type
+        # TODO: Proper type promotion rules
+        if left_type.is_numeric():
+            return left_type
+        if right_type.is_numeric():
+            return right_type
+        
+        return Type("Unknown")
+
+
+struct BorrowChecker:
+    """Borrow checker for ownership and lifetime tracking.
+    
+    Phase 4 feature - ensures safe borrowing of references.
+    Simplified implementation.
+    """
+    
+    var borrowed_vars: List[String]  # Variables currently borrowed
+    var mutably_borrowed_vars: List[String]  # Variables mutably borrowed
+    
+    fn __init__(inout self):
+        """Initialize borrow checker."""
+        self.borrowed_vars = List[String]()
+        self.mutably_borrowed_vars = List[String]()
+    
+    fn can_borrow(self, var_name: String) -> Bool:
+        """Check if a variable can be borrowed immutably.
+        
+        Args:
+            var_name: The variable name.
+            
+        Returns:
+            True if the variable can be borrowed.
+        """
+        # Can't borrow if already mutably borrowed
+        for i in range(len(self.mutably_borrowed_vars)):
+            if self.mutably_borrowed_vars[i] == var_name:
+                return False
+        return True
+    
+    fn can_borrow_mut(self, var_name: String) -> Bool:
+        """Check if a variable can be borrowed mutably.
+        
+        Args:
+            var_name: The variable name.
+            
+        Returns:
+            True if the variable can be borrowed mutably.
+        """
+        # Can't mutably borrow if already borrowed (immutably or mutably)
+        for i in range(len(self.borrowed_vars)):
+            if self.borrowed_vars[i] == var_name:
+                return False
+        for i in range(len(self.mutably_borrowed_vars)):
+            if self.mutably_borrowed_vars[i] == var_name:
+                return False
+        return True
+    
+    fn borrow(inout self, var_name: String):
+        """Record an immutable borrow.
+        
+        Args:
+            var_name: The variable being borrowed.
+        """
+        self.borrowed_vars.append(var_name)
+    
+    fn borrow_mut(inout self, var_name: String):
+        """Record a mutable borrow.
+        
+        Args:
+            var_name: The variable being mutably borrowed.
+        """
+        self.mutably_borrowed_vars.append(var_name)
+    
+    fn release_borrow(inout self, var_name: String):
+        """Release an immutable borrow.
+        
+        Args:
+            var_name: The variable being released.
+        """
+        # Simple implementation - in practice would need better tracking
+        # This is a stub for Phase 4
+        pass
+    
+    fn release_borrow_mut(inout self, var_name: String):
+        """Release a mutable borrow.
+        
+        Args:
+            var_name: The variable being released.
+        """
+        # Stub for Phase 4
+        pass
+

@@ -56,6 +56,9 @@ struct ASTNodeKind:
     # Types
     alias TYPE_NAME = 30
     alias PARAMETRIC_TYPE = 31
+    alias REFERENCE_TYPE = 32
+    alias TYPE_PARAMETER = 33
+    alias LIFETIME_PARAMETER = 34
     
     var kind: Int
     
@@ -94,9 +97,11 @@ struct FunctionNode:
     """Represents a function definition.
     
     Example: fn add(a: Int, b: Int) -> Int: return a + b
+    Example (generic): fn identity[T](x: T) -> T: return x
     """
     
     var name: String
+    var type_params: List[TypeParameterNode]  # Generic type parameters
     var parameters: List[ParameterNode]
     var return_type: TypeNode
     var body: List[ASTNodeRef]
@@ -114,6 +119,7 @@ struct FunctionNode:
             location: Source location of the function.
         """
         self.name = name
+        self.type_params = List[TypeParameterNode]()
         self.parameters = List[ParameterNode]()
         self.return_type = TypeNode("None", location)
         self.body = List[ASTNodeRef]()
@@ -151,10 +157,13 @@ struct ParameterNode:
 struct TypeNode:
     """Represents a type annotation.
     
-    Example: Int, String, List[Int]
+    Example: Int, String, List[Int], &T, &mut T
     """
     
     var name: String
+    var type_params: List[TypeNode]  # For generics like List[Int]
+    var is_reference: Bool  # For &T
+    var is_mutable_reference: Bool  # For &mut T
     var location: SourceLocation
     
     fn __init__(inout self, name: String, location: SourceLocation):
@@ -165,6 +174,9 @@ struct TypeNode:
             location: Source location of the type.
         """
         self.name = name
+        self.type_params = List[TypeNode]()
+        self.is_reference = False
+        self.is_mutable_reference = False
         self.location = location
 
 
@@ -576,12 +588,17 @@ struct StructNode:
                 self.x = x
                 self.y = y
     
+    Generic example (Phase 4):
+        struct Box[T]:
+            var value: T
+    
     Structs can also declare trait conformance (Phase 3+):
         struct Point(Hashable):
             ...
     """
     
     var name: String
+    var type_params: List[TypeParameterNode]  # Generic type parameters
     var fields: List[FieldNode]
     var methods: List[FunctionNode]
     var traits: List[String]  # Names of traits this struct implements
@@ -595,6 +612,7 @@ struct StructNode:
             location: Source location of the struct definition.
         """
         self.name = name
+        self.type_params = List[TypeParameterNode]()
         self.fields = List[FieldNode]()
         self.methods = List[FunctionNode]()
         self.traits = List[String]()
@@ -632,9 +650,14 @@ struct TraitNode:
     Example:
         trait Hashable:
             fn hash(self) -> Int
+    
+    Generic example (Phase 4):
+        trait Comparable[T]:
+            fn compare(self, other: T) -> Int
     """
     
     var name: String
+    var type_params: List[TypeParameterNode]  # Generic type parameters
     var methods: List[FunctionNode]  # Method signatures
     var location: SourceLocation
     
@@ -646,6 +669,7 @@ struct TraitNode:
             location: Source location of the trait definition.
         """
         self.name = name
+        self.type_params = List[TypeParameterNode]()
         self.methods = List[FunctionNode]()
         self.location = location
 
@@ -670,6 +694,28 @@ struct UnaryExprNode:
         """
         self.operator = operator
         self.operand = operand
+        self.location = location
+
+
+struct TypeParameterNode:
+    """Represents a generic type parameter.
+    
+    Example: T in struct Box[T], or K, V in struct Dict[K, V]
+    """
+    
+    var name: String
+    var constraints: List[String]  # Trait constraints (e.g., T: Comparable)
+    var location: SourceLocation
+    
+    fn __init__(inout self, name: String, location: SourceLocation):
+        """Initialize a type parameter node.
+        
+        Args:
+            name: The type parameter name.
+            location: Source location of the type parameter.
+        """
+        self.name = name
+        self.constraints = List[String]()
         self.location = location
 
 
