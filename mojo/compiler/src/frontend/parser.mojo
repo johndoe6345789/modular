@@ -26,6 +26,7 @@ It handles:
 from collections import List
 from .lexer import Lexer, Token, TokenKind
 from .source_location import SourceLocation
+from .node_store import NodeStore
 from .ast import (
     ModuleNode,
     FunctionNode,
@@ -40,6 +41,7 @@ from .ast import (
     FloatLiteralNode,
     StringLiteralNode,
     ASTNodeRef,
+    ASTNodeKind,
 )
 
 
@@ -74,6 +76,17 @@ struct Parser:
     var lexer: Lexer
     var current_token: Token
     var errors: List[String]
+    var node_store: NodeStore  # Tracks node kinds
+    
+    # Node storage for Phase 1 - parser owns all nodes
+    var return_nodes: List[ReturnStmtNode]
+    var var_decl_nodes: List[VarDeclNode]
+    var int_literal_nodes: List[IntegerLiteralNode]
+    var float_literal_nodes: List[FloatLiteralNode]
+    var string_literal_nodes: List[StringLiteralNode]
+    var identifier_nodes: List[IdentifierExprNode]
+    var call_expr_nodes: List[CallExprNode]
+    var binary_expr_nodes: List[BinaryExprNode]
     
     fn __init__(inout self, source: String, filename: String = "<input>"):
         """Initialize the parser with source code.
@@ -86,6 +99,17 @@ struct Parser:
         # Get the first token
         self.current_token = self.lexer.next_token()
         self.errors = List[String]()
+        self.node_store = NodeStore()
+        
+        # Initialize node storage
+        self.return_nodes = List[ReturnStmtNode]()
+        self.var_decl_nodes = List[VarDeclNode]()
+        self.int_literal_nodes = List[IntegerLiteralNode]()
+        self.float_literal_nodes = List[FloatLiteralNode]()
+        self.string_literal_nodes = List[StringLiteralNode]()
+        self.identifier_nodes = List[IdentifierExprNode]()
+        self.call_expr_nodes = List[CallExprNode]()
+        self.binary_expr_nodes = List[BinaryExprNode]()
     
     fn parse(inout self) -> AST:
         """Parse the source code into an AST.
@@ -150,8 +174,8 @@ struct Parser:
             self.error("Expected '('")
             return func
         
-        # Parse parameters (simplified - no implementation for now)
-        # TODO: Implement parameter parsing
+        # Parse parameters
+        self.parse_parameters(func)
         
         if not self.expect(TokenKind(TokenKind.RIGHT_PAREN)):
             self.error("Expected ')'")
@@ -160,7 +184,7 @@ struct Parser:
         # Parse optional return type
         if self.current_token.kind.kind == TokenKind.ARROW:
             self.advance()
-            # TODO: Parse return type
+            func.return_type = self.parse_type()
         
         # Expect colon
         if not self.expect(TokenKind(TokenKind.COLON)):
@@ -168,7 +192,7 @@ struct Parser:
             return func
         
         # Parse function body
-        # TODO: Implement statement parsing for body
+        self.parse_function_body(func)
         
         return func
     
@@ -210,12 +234,17 @@ struct Parser:
         self.advance()  # Skip 'return'
         
         # Parse optional return value
-        var value: ASTNodeRef = 0  # Placeholder for None
-        if self.current_token.kind.kind != TokenKind.NEWLINE:
+        var value: ASTNodeRef = 0  # 0 represents None/empty
+        if self.current_token.kind.kind != TokenKind.NEWLINE and self.current_token.kind.kind != TokenKind.EOF:
             value = self.parse_expression()
         
-        # In a real implementation, would create and return ReturnStmtNode
-        return 0  # Placeholder
+        # Create and store return statement node
+        let return_node = ReturnStmtNode(value, location)
+        self.return_nodes.append(return_node)
+        let node_ref = len(self.return_nodes) - 1
+        # Register with node store
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.RETURN_STMT)
+        return node_ref
     
     fn parse_var_declaration(inout self) -> ASTNodeRef:
         """Parse a variable declaration.
@@ -223,6 +252,7 @@ struct Parser:
         Returns:
             The variable declaration node reference.
         """
+        let location = self.current_token.location
         let is_var = self.current_token.kind.kind == TokenKind.VAR
         self.advance()  # Skip 'var' or 'let'
         
@@ -232,20 +262,28 @@ struct Parser:
             return 0
         
         let name = self.current_token.text
+        let name_location = self.current_token.location
         self.advance()
         
         # Parse optional type annotation
+        var var_type = TypeNode("Unknown", name_location)
         if self.current_token.kind.kind == TokenKind.COLON:
             self.advance()
-            # TODO: Parse type
+            var_type = self.parse_type()
         
         # Parse initializer
+        var init: ASTNodeRef = 0
         if self.current_token.kind.kind == TokenKind.EQUAL:
             self.advance()
-            let init = self.parse_expression()
-            # TODO: Create VarDeclNode
+            init = self.parse_expression()
         
-        return 0  # Placeholder
+        # Create and store variable declaration node
+        let var_decl = VarDeclNode(name, var_type, init, location)
+        self.var_decl_nodes.append(var_decl)
+        let node_ref = len(self.var_decl_nodes) - 1
+        # Register with node store
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.VAR_DECL)
+        return node_ref
     
     fn parse_expression_statement(inout self) -> ASTNodeRef:
         """Parse an expression statement.
@@ -261,9 +299,92 @@ struct Parser:
         Returns:
             The expression AST node reference.
         """
-        # For now, just parse primary expressions
-        # TODO: Implement full expression parsing with precedence
-        return self.parse_primary_expression()
+        # Parse binary expressions with operator precedence
+        return self.parse_binary_expression(0)
+    
+    fn parse_binary_expression(inout self, min_precedence: Int) -> ASTNodeRef:
+        """Parse binary expressions with precedence climbing.
+        
+        Args:
+            min_precedence: Minimum operator precedence to consider.
+            
+        Returns:
+            The expression node reference.
+        """
+        var left = self.parse_primary_expression()
+        
+        # Parse operators with precedence
+        while True:
+            let op_token = self.current_token
+            
+            # Check if current token is a binary operator
+            if not self.is_binary_operator(op_token.kind.kind):
+                break
+            
+            let precedence = self.get_operator_precedence(op_token.kind.kind)
+            if precedence < min_precedence:
+                break
+            
+            let operator = op_token.text
+            let op_location = op_token.location
+            self.advance()  # Consume operator
+            
+            # Parse right operand with higher precedence
+            let right = self.parse_binary_expression(precedence + 1)
+            
+            # Create binary expression node
+            let binary_node = BinaryExprNode(operator, left, right, op_location)
+            self.binary_expr_nodes.append(binary_node)
+            let node_ref = len(self.binary_expr_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.BINARY_EXPR)
+            left = node_ref
+        
+        return left
+    
+    fn is_binary_operator(self, kind: Int) -> Bool:
+        """Check if token kind is a binary operator.
+        
+        Args:
+            kind: The token kind.
+            
+        Returns:
+            True if it's a binary operator.
+        """
+        return (kind == TokenKind.PLUS or kind == TokenKind.MINUS or
+                kind == TokenKind.STAR or kind == TokenKind.SLASH or
+                kind == TokenKind.PERCENT or kind == TokenKind.DOUBLE_STAR or
+                kind == TokenKind.EQUAL_EQUAL or kind == TokenKind.NOT_EQUAL or
+                kind == TokenKind.LESS or kind == TokenKind.LESS_EQUAL or
+                kind == TokenKind.GREATER or kind == TokenKind.GREATER_EQUAL)
+    
+    fn get_operator_precedence(self, kind: Int) -> Int:
+        """Get operator precedence level.
+        
+        Args:
+            kind: The token kind.
+            
+        Returns:
+            Precedence level (higher = tighter binding).
+        """
+        # Comparison operators: ==, !=, <, <=, >, >=
+        if (kind == TokenKind.EQUAL_EQUAL or kind == TokenKind.NOT_EQUAL or
+            kind == TokenKind.LESS or kind == TokenKind.LESS_EQUAL or
+            kind == TokenKind.GREATER or kind == TokenKind.GREATER_EQUAL):
+            return 1
+        
+        # Addition and subtraction: +, -
+        if kind == TokenKind.PLUS or kind == TokenKind.MINUS:
+            return 2
+        
+        # Multiplication, division, modulo: *, /, %
+        if kind == TokenKind.STAR or kind == TokenKind.SLASH or kind == TokenKind.PERCENT:
+            return 3
+        
+        # Exponentiation: **
+        if kind == TokenKind.DOUBLE_STAR:
+            return 4
+        
+        return 0  # Unknown operator
     
     fn parse_primary_expression(inout self) -> ASTNodeRef:
         """Parse a primary expression (literals, identifiers, calls).
@@ -276,24 +397,33 @@ struct Parser:
             let value = self.current_token.text
             let location = self.current_token.location
             self.advance()
-            # TODO: Create and return IntegerLiteralNode
-            return 0  # Placeholder
+            let int_node = IntegerLiteralNode(value, location)
+            self.int_literal_nodes.append(int_node)
+            let node_ref = len(self.int_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.INTEGER_LITERAL)
+            return node_ref
         
         # Float literal
         if self.current_token.kind.kind == TokenKind.FLOAT_LITERAL:
             let value = self.current_token.text
             let location = self.current_token.location
             self.advance()
-            # TODO: Create and return FloatLiteralNode
-            return 0  # Placeholder
+            let float_node = FloatLiteralNode(value, location)
+            self.float_literal_nodes.append(float_node)
+            let node_ref = len(self.float_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.FLOAT_LITERAL)
+            return node_ref
         
         # String literal
         if self.current_token.kind.kind == TokenKind.STRING_LITERAL:
             let value = self.current_token.text
             let location = self.current_token.location
             self.advance()
-            # TODO: Create and return StringLiteralNode
-            return 0  # Placeholder
+            let string_node = StringLiteralNode(value, location)
+            self.string_literal_nodes.append(string_node)
+            let node_ref = len(self.string_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.STRING_LITERAL)
+            return node_ref
         
         # Identifier or function call
         if self.current_token.kind.kind == TokenKind.IDENTIFIER:
@@ -306,8 +436,11 @@ struct Parser:
                 return self.parse_call_expression(name, location)
             
             # Just an identifier
-            # TODO: Create and return IdentifierExprNode
-            return 0  # Placeholder
+            let ident_node = IdentifierExprNode(name, location)
+            self.identifier_nodes.append(ident_node)
+            let node_ref = len(self.identifier_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.IDENTIFIER_EXPR)
+            return node_ref
         
         # Parenthesized expression
         if self.current_token.kind.kind == TokenKind.LEFT_PAREN:
@@ -318,7 +451,7 @@ struct Parser:
             return expr
         
         self.error("Expected expression")
-        return 0  # Placeholder
+        return 0  # Error placeholder
     
     fn parse_call_expression(inout self, callee: String, location: SourceLocation) -> ASTNodeRef:
         """Parse a function call expression.
@@ -332,12 +465,12 @@ struct Parser:
         """
         self.advance()  # Skip '('
         
-        # Parse arguments
-        # TODO: Implement argument list parsing
-        # For now, just parse until ')'
+        var call_node = CallExprNode(callee, location)
         
+        # Parse arguments
         while self.current_token.kind.kind != TokenKind.RIGHT_PAREN and self.current_token.kind.kind != TokenKind.EOF:
             let arg = self.parse_expression()
+            call_node.add_argument(arg)
             
             # Check for comma
             if self.current_token.kind.kind == TokenKind.COMMA:
@@ -348,8 +481,11 @@ struct Parser:
         if not self.expect(TokenKind(TokenKind.RIGHT_PAREN)):
             self.error("Expected ')'")
         
-        # TODO: Create and return CallExprNode
-        return 0  # Placeholder
+        # Store and return call expression node
+        self.call_expr_nodes.append(call_node)
+        let node_ref = len(self.call_expr_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.CALL_EXPR)
+        return node_ref
     
     fn parse_type(inout self) -> TypeNode:
         """Parse a type annotation.
@@ -365,9 +501,84 @@ struct Parser:
         let location = self.current_token.location
         self.advance()
         
-        # TODO: Handle parametric types like List[Int]
+        # TODO: Handle parametric types like List[Int] in Phase 2
         
         return TypeNode(type_name, location)
+    
+    fn parse_parameters(inout self, inout func: FunctionNode):
+        """Parse function parameters and add them to the function.
+        
+        Args:
+            func: The function node to add parameters to.
+        """
+        # Skip if no parameters (empty parens)
+        if self.current_token.kind.kind == TokenKind.RIGHT_PAREN:
+            return
+        
+        while True:
+            # Parse parameter name
+            if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+                self.error("Expected parameter name")
+                break
+            
+            let name = self.current_token.text
+            let location = self.current_token.location
+            self.advance()
+            
+            # Parse type annotation (required for parameters)
+            var param_type = TypeNode("Unknown", location)
+            if self.current_token.kind.kind == TokenKind.COLON:
+                self.advance()
+                param_type = self.parse_type()
+            else:
+                self.error("Expected ':' after parameter name")
+            
+            # Create parameter node
+            let param = ParameterNode(name, param_type, location)
+            func.parameters.append(param)
+            
+            # Check for more parameters
+            if self.current_token.kind.kind != TokenKind.COMMA:
+                break
+            self.advance()  # Skip comma
+    
+    fn parse_function_body(inout self, inout func: FunctionNode):
+        """Parse statements in a function body.
+        
+        Args:
+            func: The function node to add body statements to.
+        """
+        # Expect newline after colon
+        if self.current_token.kind.kind == TokenKind.NEWLINE:
+            self.advance()
+        
+        # Parse statements until EOF or we see a dedent-like pattern
+        # For Phase 1, we use a simplified indentation model:
+        # - Continue parsing statements while we have valid statement starts
+        # - Stop at EOF or when we see a top-level keyword (fn, struct)
+        while self.current_token.kind.kind != TokenKind.EOF:
+            # Skip extra newlines
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
+                continue
+            
+            # Stop if we hit a top-level declaration keyword
+            if self.current_token.kind.kind == TokenKind.FN or self.current_token.kind.kind == TokenKind.STRUCT:
+                break
+            
+            # Parse statement
+            let stmt = self.parse_statement()
+            func.body.append(stmt)
+            
+            # Expect newline after statement
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
+            elif self.current_token.kind.kind == TokenKind.EOF:
+                break
+            else:
+                # If not newline or EOF, might be an error
+                # But continue parsing to collect more errors
+                pass
     
     fn expect(inout self, kind: TokenKind) -> Bool:
         """Check if current token matches expected kind and advance.

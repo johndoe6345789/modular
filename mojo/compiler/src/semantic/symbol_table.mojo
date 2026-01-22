@@ -20,7 +20,7 @@ The symbol table tracks:
 - Scoping information
 """
 
-from collections import Dict, Optional
+from collections import Dict, List
 from .type_system import Type
 
 
@@ -51,71 +51,92 @@ struct Symbol:
         self.is_mutable = is_mutable
 
 
+struct Scope:
+    """Represents a single scope level."""
+    
+    var symbols: Dict[String, Symbol]
+    
+    fn __init__(inout self):
+        """Initialize an empty scope."""
+        self.symbols = Dict[String, Symbol]()
+
+
 struct SymbolTable:
     """Symbol table for name resolution.
     
     Maintains a hierarchy of scopes for resolving names.
-    Supports:
-    - Variable lookup
-    - Name shadowing
-    - Scope management (enter/exit scopes)
+    Uses a stack-based approach for scope management.
     """
     
-    var symbols: Dict[String, Symbol]
-    var parent: Optional[SymbolTable]
+    var scopes: List[Scope]  # Stack of scopes
     
     fn __init__(inout self):
-        """Initialize an empty symbol table."""
-        self.symbols = Dict[String, Symbol]()
-        self.parent = None
+        """Initialize symbol table with global scope."""
+        self.scopes = List[Scope]()
+        # Push global scope
+        self.scopes.append(Scope())
     
-    fn declare(inout self, name: String, symbol: Symbol) raises:
-        """Declare a new symbol in the current scope.
+    fn insert(inout self, name: String, symbol_type: Type, is_mutable: Bool = False) -> Bool:
+        """Insert a symbol into the current scope.
         
         Args:
             name: The name of the symbol.
-            symbol: The symbol to declare.
+            symbol_type: The type of the symbol.
+            is_mutable: Whether the symbol is mutable (var vs let).
             
-        Raises:
-            Error if the symbol is already declared in this scope.
+        Returns:
+            True if successfully inserted, False if already exists in current scope.
         """
-        if name in self.symbols:
-            raise Error("Symbol '" + name + "' is already declared in this scope")
-        self.symbols[name] = symbol
-    
-    fn lookup(self, name: String) -> Optional[Symbol]:
-        """Look up a symbol by name.
+        if len(self.scopes) == 0:
+            return False
         
-        Searches the current scope and parent scopes.
+        # Check if already declared in current scope
+        let current_scope_idx = len(self.scopes) - 1
+        if name in self.scopes[current_scope_idx].symbols:
+            return False
+        
+        # Add to current scope
+        let symbol = Symbol(name, symbol_type, is_mutable)
+        self.scopes[current_scope_idx].symbols[name] = symbol
+        return True
+    
+    fn lookup(self, name: String) -> Type:
+        """Look up a symbol by name, searching from innermost to outermost scope.
         
         Args:
             name: The name of the symbol.
             
         Returns:
-            The symbol if found, None otherwise.
+            The symbol type if found, Unknown type otherwise.
         """
-        if name in self.symbols:
-            return self.symbols[name]
+        # Search from innermost scope outward
+        var i = len(self.scopes) - 1
+        while i >= 0:
+            if name in self.scopes[i].symbols:
+                return self.scopes[i].symbols[name].type
+            i -= 1
         
-        # TODO: Check parent scope
-        # if self.parent:
-        #     return self.parent.lookup(name)
-        
-        return None
+        # Not found - return Unknown type
+        return Type("Unknown")
     
-    fn enter_scope(inout self) -> SymbolTable:
-        """Enter a new scope.
+    fn is_declared(self, name: String) -> Bool:
+        """Check if a symbol is declared in any scope.
         
+        Args:
+            name: The name of the symbol.
+            
         Returns:
-            A new symbol table with this one as parent.
+            True if the symbol exists.
         """
-        var new_table = SymbolTable()
-        # TODO: Set parent reference
-        # new_table.parent = self
-        return new_table
+        var i = len(self.scopes) - 1
+        while i >= 0:
+            if name in self.scopes[i].symbols:
+                return True
+            i -= 1
+        return False
     
     fn is_declared_in_current_scope(self, name: String) -> Bool:
-        """Check if a symbol is declared in the current scope.
+        """Check if a symbol is declared in the current scope only.
         
         Args:
             name: The name of the symbol.
@@ -123,4 +144,16 @@ struct SymbolTable:
         Returns:
             True if declared in current scope (not parent scopes).
         """
-        return name in self.symbols
+        if len(self.scopes) == 0:
+            return False
+        let current_scope_idx = len(self.scopes) - 1
+        return name in self.scopes[current_scope_idx].symbols
+    
+    fn push_scope(inout self):
+        """Enter a new scope (e.g., function body, block)."""
+        self.scopes.append(Scope())
+    
+    fn pop_scope(inout self):
+        """Exit the current scope."""
+        if len(self.scopes) > 1:  # Keep at least global scope
+            _ = self.scopes.pop()
