@@ -5,11 +5,10 @@ package(default_visibility = ["//visibility:public"])
 # Export the compiler for external use
 exports_files(["README.md"])
 
-# Main compiler entry point
-mojo_library(
+# Main compiler entry point (alias to src implementation)
+alias(
     name = "compiler",
-    srcs = [],
-    deps = ["//mojo/compiler/src:compiler"],
+    actual = "//mojo/compiler/src:compiler",
 )
 
 # Compiler test suite
