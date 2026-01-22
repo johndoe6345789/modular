@@ -1,72 +1,80 @@
-##===----------------------------------------------------------------------===##
-# Copyright (c) 2025, Modular Inc. All rights reserved.
-#
-# Licensed under the Apache License v2.0 with LLVM Exceptions:
-# https://llvm.org/LICENSE.txt
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##===----------------------------------------------------------------------===##
-
 name: Build and Test
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
   push:
     branches:
-    - main
+      - main
     paths:
-    - "bazel/mojo.MODULE.bazel"
+      - "bazel/mojo.MODULE.bazel"
 
 permissions:
   contents: read
   pull-requests: read
 
-concurrency: # Only allow a single build/test run at a time for a PR.
+concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build and Test on ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: ["linux"]
-
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-
-    defaults:
-      run:
-        shell: bash
     env:
       DEBIAN_FRONTEND: noninteractive
+      BB_DISABLE_SIDECAR: 1
 
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build and Test
+      - name: Setup Build Environment
         run: |
-          if [[ -n "${BUILDBUDDY_TOKEN:-}" ]]; then
-            # NOTE: Read+write token that only runs on trusted PRs.
-            args=(
-              --remote_header=x-buildbuddy-api-key=$BUILDBUDDY_TOKEN
-            )
-          else
-            # NOTE: Readonly token that we're ok with being here.
-            args=(
-              --remote_header=x-buildbuddy-api-key=gJPttl2LQEONgD2aKziQ
-              --remote_upload_local_results=false
-            )
-          fi
+          # Add any pre-build setup commands here
+          echo "Preparing build environment..."
 
-          # NOTE: Skip the buildbuddy sidecar on linux where the machine is too small.
-          # TODO: Remove this once upstream has fixed the issue.
-          BB_DISABLE_SIDECAR=1 ./bazelw test --config=ci --config=public-cache "${args[@]}" --build_tag_filters=-skip-external-ci-${{ matrix.os }},-requires-network --test_tag_filters=-skip-external-ci-${{ matrix.os }},-requires-network -- //...
+      - name: Determine BuildBuddy Configuration
+        id: buildbuddy-config
         env:
           BUILDBUDDY_TOKEN: ${{ secrets.BUILDBUDDY_TOKEN }}
+        run: |
+          if [[ -n "${BUILDBUDDY_TOKEN:-}" ]]; then
+            echo "remote_header=x-buildbuddy-api-key=${BUILDBUDDY_TOKEN}" >> $GITHUB_OUTPUT
+            echo "upload_local_results=true" >> $GITHUB_OUTPUT
+          else
+            echo "remote_header=x-buildbuddy-api-key=gJPttl2LQEONgD2aKziQ" >> $GITHUB_OUTPUT
+            echo "upload_local_results=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Test with Bazel
+        run: |
+          ./bazelw test \
+            --config=ci \
+            --config=public-cache \
+            --remote_header="${{ steps.buildbuddy-config.outputs.remote_header }}" \
+            --remote_upload_local_results="${{ steps.buildbuddy-config.outputs.upload_local_results }}" \
+            --build_tag_filters=-skip-external-ci-${{ matrix.os }},-requires-network \
+            --test_tag_filters=-skip-external-ci-${{ matrix.os }},-requires-network \
+            //...
+
+      - name: Upload Test Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: |
+            bazel-testlogs/
+            bazel-out/**/test.log
+
+      - name: Summarize Build Results
+        if: always()
+        run: |
+          echo "🏗️ Build and Test Summary"
+          echo "Operating System: ${{ matrix.os }}"
+          echo "BuildBuddy Configuration: ${{ steps.buildbuddy-config.outputs.remote_header != '' && 'Trusted PR Token' || 'Public Token' }}"
