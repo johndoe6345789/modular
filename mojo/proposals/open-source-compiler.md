@@ -25,10 +25,11 @@ This creates a barrier for community participation in compiler development and l
 
 1. **Full Language Support**: Implement complete Mojo language specification
 2. **Standard Library Compatibility**: Work seamlessly with the existing open source stdlib
-3. **Performance**: Achieve competitive performance with existing implementation
-4. **Modularity**: Clean separation of concerns for maintainability
-5. **Extensibility**: Easy to add new backends and optimizations
-6. **LLVM Foundation**: Build on proven LLVM infrastructure
+3. **Performance**: Achieve competitive performance with existing implementation—maintaining Mojo's speed advantage over Python through zero-cost abstractions, LLVM optimizations, and efficient low-level code generation
+4. **C Library Interoperability**: Preserve seamless integration with C libraries and system APIs with zero overhead
+5. **Modularity**: Clean separation of concerns for maintainability
+6. **Extensibility**: Easy to add new backends and optimizations
+7. **LLVM Foundation**: Build on proven LLVM infrastructure
 
 ## Non-Goals
 
@@ -313,7 +314,59 @@ target = "x86_64-linux"
 opt-level = 3
 ```
 
-### 7. Python Interoperability
+### 7. C Library Interoperability
+
+**Requirements**:
+- Call C functions from Mojo code
+- Use C types and structs
+- Link with C libraries (static and dynamic)
+- Zero-cost abstractions over C APIs
+- ABI compatibility with C
+
+**Implementation**:
+- Foreign Function Interface (FFI) layer
+- C type mapping to Mojo types
+- External function declarations
+- Proper calling convention support (cdecl, stdcall, etc.)
+- Header file processing (C interop declarations)
+
+**Example Usage**:
+```mojo
+from sys.ffi import external_call
+
+# Declare C function
+fn c_strlen(s: UnsafePointer[UInt8]) -> Int:
+    return external_call["strlen", Int](s)
+
+# Use C library (e.g., libc math)
+@external
+fn sin(x: Float64) -> Float64
+
+fn use_c_math():
+    let result = sin(3.14159 / 2)  # Calls C's sin function
+    print("sin(π/2) =", result)
+
+# Work with C structs
+@value
+@register_passable("trivial")
+struct CTimeSpec:
+    var tv_sec: Int64
+    var tv_nsec: Int64
+
+@external
+fn clock_gettime(clk_id: Int, tp: UnsafePointer[CTimeSpec]) -> Int
+```
+
+**Design Principles**:
+- **Zero-cost abstraction**: C calls should have no overhead compared to native C
+- **Type safety**: Provide safe wrappers while allowing unsafe access when needed
+- **Compatibility**: Work with existing C libraries without modification
+- **Performance**: Direct function calls, no runtime overhead
+- **ABI stability**: Maintain stable C calling conventions
+
+This preserves Mojo's strength in systems programming and allows seamless integration with the vast ecosystem of C libraries (database drivers, system APIs, scientific computing libraries, etc.).
+
+### 8. Python Interoperability
 
 **Requirements**:
 - Import Python modules
@@ -335,7 +388,7 @@ fn use_numpy():
     print(arr.shape)
 ```
 
-### 8. Optimization Pipeline
+### 9. Optimization Pipeline
 
 **High-Level Optimizations**:
 - Inlining
@@ -357,7 +410,7 @@ fn use_numpy():
 - Auto-vectorization
 - Link-time optimization (LTO)
 
-### 9. GPU Support
+### 10. GPU Support
 
 **Requirements**:
 - CUDA backend for NVIDIA GPUs
