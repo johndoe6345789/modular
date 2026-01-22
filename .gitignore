@@ -161,3 +161,7 @@ examples/models/*
 
 # Kgen trace
 kgen.trace.*
+
+# Mojo compiler build artifacts
+mojo/compiler/runtime/*.o
+mojo/compiler/runtime/*.a
