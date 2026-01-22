@@ -22,6 +22,7 @@ It orchestrates the compilation pipeline:
 5. Code generation: Lowering to LLVM IR and machine code
 """
 
+from pathlib import Path
 from .frontend import Lexer, Parser
 from .semantic import TypeChecker
 from .ir import MLIRGenerator
@@ -82,10 +83,15 @@ fn compile(source_file: String, options: CompilerOptions) raises -> Bool:
         True if compilation succeeded, False otherwise.
         
     Raises:
-        Error if compilation fails.
+        Error if compilation fails or file cannot be read.
     """
-    # TODO: Read source file
-    let source = ""  # read_file(source_file)
+    # Read source file
+    let path = Path(source_file)
+    if not path.exists():
+        print("Error: Source file not found:", source_file)
+        return False
+    
+    let source = path.read_text()
     
     # Phase 1: Frontend - Parsing
     print("Parsing:", source_file)
