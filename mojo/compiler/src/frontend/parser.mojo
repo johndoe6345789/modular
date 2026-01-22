@@ -40,6 +40,17 @@ from .ast import (
     IntegerLiteralNode,
     FloatLiteralNode,
     StringLiteralNode,
+    BoolLiteralNode,
+    IfStmtNode,
+    WhileStmtNode,
+    ForStmtNode,
+    BreakStmtNode,
+    ContinueStmtNode,
+    PassStmtNode,
+    StructNode,
+    FieldNode,
+    TraitNode,
+    UnaryExprNode,
     ASTNodeRef,
     ASTNodeKind,
 )
@@ -78,15 +89,30 @@ struct Parser:
     var errors: List[String]
     var node_store: NodeStore  # Tracks node kinds
     
-    # Node storage for Phase 1 - parser owns all nodes
+    # Node storage for Phase 1 & 2 - parser owns all nodes
     var return_nodes: List[ReturnStmtNode]
     var var_decl_nodes: List[VarDeclNode]
     var int_literal_nodes: List[IntegerLiteralNode]
     var float_literal_nodes: List[FloatLiteralNode]
     var string_literal_nodes: List[StringLiteralNode]
+    var bool_literal_nodes: List[BoolLiteralNode]
     var identifier_nodes: List[IdentifierExprNode]
     var call_expr_nodes: List[CallExprNode]
     var binary_expr_nodes: List[BinaryExprNode]
+    var unary_expr_nodes: List[UnaryExprNode]
+    
+    # Phase 2: Control flow nodes
+    var if_stmt_nodes: List[IfStmtNode]
+    var while_stmt_nodes: List[WhileStmtNode]
+    var for_stmt_nodes: List[ForStmtNode]
+    var break_stmt_nodes: List[BreakStmtNode]
+    var continue_stmt_nodes: List[ContinueStmtNode]
+    var pass_stmt_nodes: List[PassStmtNode]
+    
+    # Phase 2: Struct and trait nodes
+    var struct_nodes: List[StructNode]
+    var field_nodes: List[FieldNode]
+    var trait_nodes: List[TraitNode]
     
     fn __init__(inout self, source: String, filename: String = "<input>"):
         """Initialize the parser with source code.
@@ -107,9 +133,22 @@ struct Parser:
         self.int_literal_nodes = List[IntegerLiteralNode]()
         self.float_literal_nodes = List[FloatLiteralNode]()
         self.string_literal_nodes = List[StringLiteralNode]()
+        self.bool_literal_nodes = List[BoolLiteralNode]()
         self.identifier_nodes = List[IdentifierExprNode]()
         self.call_expr_nodes = List[CallExprNode]()
         self.binary_expr_nodes = List[BinaryExprNode]()
+        self.unary_expr_nodes = List[UnaryExprNode]()
+        
+        # Initialize Phase 2 node storage
+        self.if_stmt_nodes = List[IfStmtNode]()
+        self.while_stmt_nodes = List[WhileStmtNode]()
+        self.for_stmt_nodes = List[ForStmtNode]()
+        self.break_stmt_nodes = List[BreakStmtNode]()
+        self.continue_stmt_nodes = List[ContinueStmtNode]()
+        self.pass_stmt_nodes = List[PassStmtNode]()
+        self.struct_nodes = List[StructNode]()
+        self.field_nodes = List[FieldNode]()
+        self.trait_nodes = List[TraitNode]()
     
     fn parse(inout self) -> AST:
         """Parse the source code into an AST.
@@ -196,16 +235,96 @@ struct Parser:
         
         return func
     
-    fn parse_struct(inout self) -> FunctionNode:
+    fn parse_struct(inout self) -> StructNode:
         """Parse a struct definition.
         
         Returns:
-            The struct AST node (placeholder - returns function for now).
+            The struct AST node.
         """
-        # TODO: Implement struct parsing
-        # struct Name[params]: fields and methods
         let location = self.current_token.location
-        return FunctionNode("placeholder", location)
+        self.advance()  # Skip 'struct'
+        
+        # Parse struct name
+        if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+            self.error("Expected struct name")
+            return StructNode("Error", location)
+        
+        let name = self.current_token.text
+        self.advance()
+        
+        # TODO: Handle parametric structs [T: Type] in future phase
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after struct name")
+        else:
+            self.advance()
+        
+        # Create struct node
+        var struct_node = StructNode(name, location)
+        
+        # Expect newline
+        if self.current_token.kind.kind == TokenKind.NEWLINE:
+            self.advance()
+        
+        # Parse struct body (fields and methods)
+        while (self.current_token.kind.kind != TokenKind.EOF and
+               self.current_token.kind.kind != TokenKind.DEDENT):
+            
+            # Skip extra newlines
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
+                continue
+            
+            # Check if it's a method (fn keyword)
+            if self.current_token.kind.kind == TokenKind.FN:
+                let method = self.parse_function()
+                struct_node.methods.append(method)
+            # Otherwise it's a field (var keyword)
+            elif self.current_token.kind.kind == TokenKind.VAR:
+                let field = self.parse_struct_field()
+                struct_node.fields.append(field)
+            else:
+                self.error("Expected 'var' for field or 'fn' for method in struct body")
+                self.advance()  # Skip unexpected token
+        
+        return struct_node
+    
+    fn parse_struct_field(inout self) -> FieldNode:
+        """Parse a struct field declaration.
+        
+        Returns:
+            The field node.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'var'
+        
+        # Parse field name
+        if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+            self.error("Expected field name")
+            return FieldNode("error", TypeNode("Unknown", location), location)
+        
+        let name = self.current_token.text
+        self.advance()
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after field name")
+            return FieldNode(name, TypeNode("Unknown", location), location)
+        self.advance()
+        
+        # Parse field type
+        let field_type = self.parse_type()
+        
+        # Create field node
+        var field = FieldNode(name, field_type, location)
+        
+        # Parse optional default value
+        if self.current_token.kind.kind == TokenKind.EQUAL:
+            self.advance()
+            field.default_value = self.parse_expression()
+        
+        return field
     
     fn parse_statement(inout self) -> ASTNodeRef:
         """Parse a statement.
@@ -213,6 +332,25 @@ struct Parser:
         Returns:
             The statement AST node reference.
         """
+        # Control flow statements (Phase 2)
+        if self.current_token.kind.kind == TokenKind.IF:
+            return self.parse_if_statement()
+        
+        if self.current_token.kind.kind == TokenKind.WHILE:
+            return self.parse_while_statement()
+        
+        if self.current_token.kind.kind == TokenKind.FOR:
+            return self.parse_for_statement()
+        
+        if self.current_token.kind.kind == TokenKind.BREAK:
+            return self.parse_break_statement()
+        
+        if self.current_token.kind.kind == TokenKind.CONTINUE:
+            return self.parse_continue_statement()
+        
+        if self.current_token.kind.kind == TokenKind.PASS:
+            return self.parse_pass_statement()
+        
         # Return statement
         if self.current_token.kind.kind == TokenKind.RETURN:
             return self.parse_return_statement()
@@ -292,6 +430,213 @@ struct Parser:
             The expression node reference.
         """
         return self.parse_expression()
+    
+    fn parse_if_statement(inout self) -> ASTNodeRef:
+        """Parse an if statement with optional elif and else blocks.
+        
+        Returns:
+            The if statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'if'
+        
+        # Parse condition
+        let condition = self.parse_expression()
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after if condition")
+        else:
+            self.advance()
+        
+        # Create if statement node
+        var if_node = IfStmtNode(condition, location)
+        
+        # Parse then block
+        self.parse_block(if_node.then_block)
+        
+        # Parse optional elif blocks
+        while self.current_token.kind.kind == TokenKind.ELIF:
+            self.advance()  # Skip 'elif'
+            let elif_condition = self.parse_expression()
+            
+            if self.current_token.kind.kind != TokenKind.COLON:
+                self.error("Expected ':' after elif condition")
+            else:
+                self.advance()
+            
+            var elif_block = List[ASTNodeRef]()
+            self.parse_block(elif_block)
+            
+            if_node.elif_conditions.append(elif_condition)
+            if_node.elif_blocks.append(elif_block)
+        
+        # Parse optional else block
+        if self.current_token.kind.kind == TokenKind.ELSE:
+            self.advance()  # Skip 'else'
+            
+            if self.current_token.kind.kind != TokenKind.COLON:
+                self.error("Expected ':' after else")
+            else:
+                self.advance()
+            
+            self.parse_block(if_node.else_block)
+        
+        # Store node
+        self.if_stmt_nodes.append(if_node)
+        let node_ref = len(self.if_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.IF_STMT)
+        return node_ref
+    
+    fn parse_while_statement(inout self) -> ASTNodeRef:
+        """Parse a while loop.
+        
+        Returns:
+            The while statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'while'
+        
+        # Parse condition
+        let condition = self.parse_expression()
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after while condition")
+        else:
+            self.advance()
+        
+        # Create while statement node
+        var while_node = WhileStmtNode(condition, location)
+        
+        # Parse body
+        self.parse_block(while_node.body)
+        
+        # Store node
+        self.while_stmt_nodes.append(while_node)
+        let node_ref = len(self.while_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.WHILE_STMT)
+        return node_ref
+    
+    fn parse_for_statement(inout self) -> ASTNodeRef:
+        """Parse a for loop.
+        
+        Returns:
+            The for statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'for'
+        
+        # Parse iterator variable
+        if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+            self.error("Expected iterator variable name")
+            return 0
+        
+        let iterator = self.current_token.text
+        self.advance()
+        
+        # Expect 'in'
+        if self.current_token.kind.kind != TokenKind.IN:
+            self.error("Expected 'in' after iterator variable")
+            return 0
+        self.advance()
+        
+        # Parse collection expression
+        let collection = self.parse_expression()
+        
+        # Expect colon
+        if self.current_token.kind.kind != TokenKind.COLON:
+            self.error("Expected ':' after for header")
+        else:
+            self.advance()
+        
+        # Create for statement node
+        var for_node = ForStmtNode(iterator, collection, location)
+        
+        # Parse body
+        self.parse_block(for_node.body)
+        
+        # Store node
+        self.for_stmt_nodes.append(for_node)
+        let node_ref = len(self.for_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.FOR_STMT)
+        return node_ref
+    
+    fn parse_break_statement(inout self) -> ASTNodeRef:
+        """Parse a break statement.
+        
+        Returns:
+            The break statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'break'
+        
+        # Create and store break statement node
+        let break_node = BreakStmtNode(location)
+        self.break_stmt_nodes.append(break_node)
+        let node_ref = len(self.break_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.BREAK_STMT)
+        return node_ref
+    
+    fn parse_continue_statement(inout self) -> ASTNodeRef:
+        """Parse a continue statement.
+        
+        Returns:
+            The continue statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'continue'
+        
+        # Create and store continue statement node
+        let continue_node = ContinueStmtNode(location)
+        self.continue_stmt_nodes.append(continue_node)
+        let node_ref = len(self.continue_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.CONTINUE_STMT)
+        return node_ref
+    
+    fn parse_pass_statement(inout self) -> ASTNodeRef:
+        """Parse a pass statement.
+        
+        Returns:
+            The pass statement node reference.
+        """
+        let location = self.current_token.location
+        self.advance()  # Skip 'pass'
+        
+        # Create and store pass statement node
+        let pass_node = PassStmtNode(location)
+        self.pass_stmt_nodes.append(pass_node)
+        let node_ref = len(self.pass_stmt_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.PASS_STMT)
+        return node_ref
+    
+    fn parse_block(inout self, inout block: List[ASTNodeRef]):
+        """Parse a block of statements (for if/while/for bodies).
+        
+        Args:
+            block: The list to append parsed statements to.
+        """
+        # Expect newline after colon
+        if self.current_token.kind.kind == TokenKind.NEWLINE:
+            self.advance()
+        
+        # Parse statements until we hit dedent or a keyword that ends the block
+        while (self.current_token.kind.kind != TokenKind.EOF and
+               self.current_token.kind.kind != TokenKind.DEDENT and
+               self.current_token.kind.kind != TokenKind.ELIF and
+               self.current_token.kind.kind != TokenKind.ELSE):
+            
+            # Skip extra newlines
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
+                continue
+            
+            let stmt = self.parse_statement()
+            block.append(stmt)
+            
+            # Skip newline after statement
+            if self.current_token.kind.kind == TokenKind.NEWLINE:
+                self.advance()
     
     fn parse_expression(inout self) -> ASTNodeRef:
         """Parse an expression.
