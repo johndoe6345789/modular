@@ -27,12 +27,13 @@ from ..frontend.ast import (
     FunctionNode,
     StructNode,
     FieldNode,
+    TraitNode,
     ASTNodeRef,
     ASTNodeKind,
 )
 from ..frontend.source_location import SourceLocation
 from .symbol_table import SymbolTable
-from .type_system import Type, TypeContext, StructInfo
+from .type_system import Type, TypeContext, StructInfo, TraitInfo
 
 
 struct TypeChecker:
@@ -101,6 +102,8 @@ struct TypeChecker:
             _ = self.check_function(node_ref)
         elif kind == ASTNodeKind.STRUCT:
             self.check_struct(node_ref)
+        elif kind == ASTNodeKind.TRAIT:
+            self.check_trait(node_ref)
         elif kind == ASTNodeKind.VAR_DECL:
             self.check_statement(node_ref)
         elif kind == ASTNodeKind.RETURN_STMT:
@@ -178,11 +181,120 @@ struct TypeChecker:
             # TODO: Check method parameter types
             # TODO: Check method body if implemented
         
+        # Validate trait conformance if struct declares traits
+        for i in range(len(struct_node.traits)):
+            let trait_name = struct_node.traits[i]
+            
+            # Check if trait exists
+            if not self.type_context.is_trait(trait_name):
+                self.error(
+                    "Unknown trait '" + trait_name + "' in struct '" + struct_node.name + "' conformance",
+                    struct_node.location
+                )
+                continue
+            
+            # Add trait to struct info
+            struct_info.add_trait(trait_name)
+        
         # Register the struct type
         self.type_context.register_struct(struct_info)
         
+        # Now validate conformance after registration
+        for i in range(len(struct_node.traits)):
+            let trait_name = struct_node.traits[i]
+            if self.type_context.is_trait(trait_name):
+                _ = self.validate_trait_conformance(struct_node.name, trait_name, struct_node.location)
+        
         # Also register in symbol table for name resolution
         self.symbol_table.insert(struct_node.name, Type(struct_node.name, is_struct=True))
+    
+    fn check_trait(inout self, node_ref: ASTNodeRef):
+        """Type check a trait definition.
+        
+        Traits define interfaces that structs must implement.
+        They contain method signatures without implementations.
+        
+        Args:
+            node_ref: The trait node reference (index into parser.trait_nodes).
+        """
+        # Get trait node from parser
+        if node_ref < 0 or node_ref >= len(self.parser.trait_nodes):
+            self.error("Invalid trait reference", SourceLocation("", 0, 0))
+            return
+        
+        let trait_node = self.parser.trait_nodes[node_ref]
+        
+        # Create trait info for type context
+        var trait_info = TraitInfo(trait_node.name)
+        
+        # Check and add all method signatures
+        for i in range(len(trait_node.methods)):
+            let method = trait_node.methods[i]
+            
+            # Validate return type exists
+            let return_type = self.type_context.lookup_type(method.return_type.name)
+            if return_type.name == "Unknown":
+                self.error(
+                    "Unknown return type '" + method.return_type.name + "' for method '" + method.name + "'",
+                    method.location
+                )
+            
+            # Add method signature to trait info
+            trait_info.add_required_method(method.name, Type(method.return_type.name))
+            
+            # TODO: Validate method parameter types
+            # Trait methods should not have implementations
+        
+        # Register the trait type
+        self.type_context.register_trait(trait_info)
+        
+        # Also register in symbol table for name resolution
+        self.symbol_table.insert(trait_node.name, Type(trait_node.name))
+    
+    fn validate_trait_conformance(inout self, struct_name: String, trait_name: String, location: SourceLocation) -> Bool:
+        """Validate that a struct properly implements a trait.
+        
+        This method checks that the struct implements all required methods
+        of the trait with compatible signatures.
+        
+        Args:
+            struct_name: The name of the struct.
+            trait_name: The name of the trait.
+            location: Source location for error reporting.
+            
+        Returns:
+            True if the struct conforms to the trait.
+        """
+        # Use the type context's conformance checking
+        if self.type_context.check_trait_conformance(struct_name, trait_name):
+            return True
+        
+        # Generate detailed error messages about what's missing
+        let trait_info = self.type_context.lookup_trait(trait_name)
+        let struct_info = self.type_context.lookup_struct(struct_name)
+        
+        # Find missing methods
+        for i in range(len(trait_info.required_methods)):
+            let required_method = trait_info.required_methods[i]
+            
+            if not struct_info.has_method(required_method.name):
+                self.error(
+                    "Struct '" + struct_name + "' does not implement required method '" + 
+                    required_method.name + "' from trait '" + trait_name + "'",
+                    location
+                )
+            else:
+                # Method exists but check signature compatibility
+                let struct_method = struct_info.get_method(required_method.name)
+                if not struct_method.return_type.is_compatible_with(required_method.return_type):
+                    self.error(
+                        "Method '" + required_method.name + "' in struct '" + struct_name + 
+                        "' has incompatible return type (expected " + required_method.return_type.name +
+                        ", got " + struct_method.return_type.name + ")",
+                        location
+                    )
+        
+        return False
     
     fn check_expression(inout self, node_ref: ASTNodeRef) -> Type:
         """Type check an expression and return its type.

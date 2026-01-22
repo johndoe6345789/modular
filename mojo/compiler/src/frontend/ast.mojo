@@ -575,11 +575,16 @@ struct StructNode:
             fn __init__(inout self, x: Int, y: Int):
                 self.x = x
                 self.y = y
+    
+    Structs can also declare trait conformance (Phase 3+):
+        struct Point(Hashable):
+            ...
     """
     
     var name: String
     var fields: List[FieldNode]
     var methods: List[FunctionNode]
+    var traits: List[String]  # Names of traits this struct implements
     var location: SourceLocation
     
     fn __init__(inout self, name: String, location: SourceLocation):
@@ -592,6 +597,7 @@ struct StructNode:
         self.name = name
         self.fields = List[FieldNode]()
         self.methods = List[FunctionNode]()
+        self.traits = List[String]()
         self.location = location
 
 
