@@ -51,6 +51,10 @@ struct TokenKind:
     alias AS = 17
     alias ALIAS = 18
     alias LET = 19
+    alias MUT = 20
+    alias INOUT = 21
+    alias OWNED = 22
+    alias BORROWED = 23
     
     # Literals
     alias IDENTIFIER = 100
@@ -456,6 +460,8 @@ struct Lexer:
             return True
         if text == "import" or text == "from" or text == "as":
             return True
+        if text == "mut" or text == "inout" or text == "owned" or text == "borrowed":
+            return True
         if text == "True" or text == "False":
             return True
         return False
@@ -509,6 +515,14 @@ struct Lexer:
             return TokenKind(TokenKind.FROM)
         if text == "as":
             return TokenKind(TokenKind.AS)
+        if text == "mut":
+            return TokenKind(TokenKind.MUT)
+        if text == "inout":
+            return TokenKind(TokenKind.INOUT)
+        if text == "owned":
+            return TokenKind(TokenKind.OWNED)
+        if text == "borrowed":
+            return TokenKind(TokenKind.BORROWED)
         if text == "True" or text == "False":
             return TokenKind(TokenKind.BOOL_LITERAL)
         return TokenKind(TokenKind.IDENTIFIER)
