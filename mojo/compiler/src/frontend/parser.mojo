@@ -51,6 +51,7 @@ from .ast import (
     FieldNode,
     TraitNode,
     UnaryExprNode,
+    MemberAccessNode,
     ASTNodeRef,
     ASTNodeKind,
 )
@@ -100,6 +101,7 @@ struct Parser:
     var call_expr_nodes: List[CallExprNode]
     var binary_expr_nodes: List[BinaryExprNode]
     var unary_expr_nodes: List[UnaryExprNode]
+    var member_access_nodes: List[MemberAccessNode]  # Phase 2: Member access
     
     # Phase 2: Control flow nodes
     var if_stmt_nodes: List[IfStmtNode]
@@ -138,6 +140,7 @@ struct Parser:
         self.call_expr_nodes = List[CallExprNode]()
         self.binary_expr_nodes = List[BinaryExprNode]()
         self.unary_expr_nodes = List[UnaryExprNode]()
+        self.member_access_nodes = List[MemberAccessNode]()
         
         # Initialize Phase 2 node storage
         self.if_stmt_nodes = List[IfStmtNode]()
@@ -711,8 +714,64 @@ struct Parser:
             _ = self.node_store.register_node(node_ref, ASTNodeKind.UNARY_EXPR)
             return node_ref
         
-        # Not a unary operator, parse primary expression
-        return self.parse_primary_expression()
+        # Not a unary operator, parse postfix expression (primary + member access)
+        return self.parse_postfix_expression()
+    
+    fn parse_postfix_expression(inout self) -> ASTNodeRef:
+        """Parse postfix expressions (member access, method calls).
+        
+        Returns:
+            The expression node reference.
+        """
+        var expr = self.parse_primary_expression()
+        
+        # Handle postfix operators (member access with dot)
+        while self.current_token.kind.kind == TokenKind.DOT:
+            let dot_location = self.current_token.location
+            self.advance()  # Skip '.'
+            
+            # Expect member name
+            if self.current_token.kind.kind != TokenKind.IDENTIFIER:
+                self.error("Expected member name after '.'")
+                return expr
+            
+            let member_name = self.current_token.text
+            self.advance()
+            
+            # Check if this is a method call (followed by parentheses)
+            if self.current_token.kind.kind == TokenKind.LEFT_PAREN:
+                # Parse method call
+                self.advance()  # Skip '('
+                
+                var member_node = MemberAccessNode(expr, member_name, dot_location, is_method_call=True)
+                
+                # Parse method arguments
+                while self.current_token.kind.kind != TokenKind.RIGHT_PAREN and self.current_token.kind.kind != TokenKind.EOF:
+                    let arg = self.parse_expression()
+                    member_node.add_argument(arg)
+                    
+                    if self.current_token.kind.kind == TokenKind.COMMA:
+                        self.advance()
+                    elif self.current_token.kind.kind != TokenKind.RIGHT_PAREN:
+                        break
+                
+                if not self.expect(TokenKind(TokenKind.RIGHT_PAREN)):
+                    self.error("Expected ')' after method arguments")
+                
+                # Store member access node
+                self.member_access_nodes.append(member_node)
+                let node_ref = len(self.member_access_nodes) - 1
+                _ = self.node_store.register_node(node_ref, ASTNodeKind.MEMBER_ACCESS)
+                expr = node_ref
+            else:
+                # Field access
+                let member_node = MemberAccessNode(expr, member_name, dot_location, is_method_call=False)
+                self.member_access_nodes.append(member_node)
+                let node_ref = len(self.member_access_nodes) - 1
+                _ = self.node_store.register_node(node_ref, ASTNodeKind.MEMBER_ACCESS)
+                expr = node_ref
+        
+        return expr
     
     fn is_binary_operator(self, kind: Int) -> Bool:
         """Check if token kind is a binary operator.

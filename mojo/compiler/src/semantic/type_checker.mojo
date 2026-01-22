@@ -25,12 +25,14 @@ from ..frontend.parser import AST, Parser
 from ..frontend.ast import (
     ModuleNode,
     FunctionNode,
+    StructNode,
+    FieldNode,
     ASTNodeRef,
     ASTNodeKind,
 )
 from ..frontend.source_location import SourceLocation
 from .symbol_table import SymbolTable
-from .type_system import Type, TypeContext
+from .type_system import Type, TypeContext, StructInfo
 
 
 struct TypeChecker:
@@ -97,6 +99,8 @@ struct TypeChecker:
         
         if kind == ASTNodeKind.FUNCTION:
             _ = self.check_function(node_ref)
+        elif kind == ASTNodeKind.STRUCT:
+            self.check_struct(node_ref)
         elif kind == ASTNodeKind.VAR_DECL:
             self.check_statement(node_ref)
         elif kind == ASTNodeKind.RETURN_STMT:
@@ -124,6 +128,61 @@ struct TypeChecker:
         
         # Return a generic function type for now
         return Type("Function")
+    
+    fn check_struct(inout self, node_ref: ASTNodeRef):
+        """Type check a struct definition.
+        
+        Args:
+            node_ref: The struct node reference (index into parser.struct_nodes).
+        """
+        # Get struct node from parser
+        if node_ref < 0 or node_ref >= len(self.parser.struct_nodes):
+            self.error("Invalid struct reference", SourceLocation("", 0, 0))
+            return
+        
+        let struct_node = self.parser.struct_nodes[node_ref]
+        
+        # Create struct info for type context
+        var struct_info = StructInfo(struct_node.name)
+        
+        # Check and add all fields
+        for i in range(len(struct_node.fields)):
+            let field = struct_node.fields[i]
+            
+            # Validate field type exists
+            let field_type = self.type_context.lookup_type(field.field_type.name)
+            if field_type.name == "Unknown" and not self.type_context.is_struct(field.field_type.name):
+                self.error(
+                    "Unknown type '" + field.field_type.name + "' for field '" + field.name + "'",
+                    field.location
+                )
+            
+            # Add field to struct info
+            struct_info.add_field(field.name, Type(field.field_type.name))
+        
+        # Check and add all methods
+        for i in range(len(struct_node.methods)):
+            let method = struct_node.methods[i]
+            
+            # Validate return type
+            let return_type = self.type_context.lookup_type(method.return_type.name)
+            if return_type.name == "Unknown" and not self.type_context.is_struct(method.return_type.name):
+                self.error(
+                    "Unknown return type '" + method.return_type.name + "' for method '" + method.name + "'",
+                    method.location
+                )
+            
+            # Add method to struct info
+            struct_info.add_method(method.name, Type(method.return_type.name))
+            
+            # TODO: Check method parameter types
+            # TODO: Check method body if implemented
+        
+        # Register the struct type
+        self.type_context.register_struct(struct_info)
+        
+        # Also register in symbol table for name resolution
+        self.symbol_table.insert(struct_node.name, Type(struct_node.name, is_struct=True))
     
     fn check_expression(inout self, node_ref: ASTNodeRef) -> Type:
         """Type check an expression and return its type.
@@ -167,6 +226,10 @@ struct TypeChecker:
         # Unary expression
         elif kind == ASTNodeKind.UNARY_EXPR:
             return self.check_unary_expr(node_ref)
+        
+        # Member access (field or method)
+        elif kind == ASTNodeKind.MEMBER_ACCESS:
+            return self.check_member_access(node_ref)
         
         return Type("Unknown")
     
@@ -245,13 +308,13 @@ struct TypeChecker:
         return left_type
     
     fn check_call_expr(inout self, node_ref: ASTNodeRef) -> Type:
-        """Check a function call expression.
+        """Check a function call or struct instantiation expression.
         
         Args:
             node_ref: The call expression node reference.
             
         Returns:
-            The return type of the function.
+            The return type of the function or the struct type for constructors.
         """
         # Get call expression node
         if node_ref < 0 or node_ref >= len(self.parser.call_expr_nodes):
@@ -259,6 +322,10 @@ struct TypeChecker:
             return Type("Unknown")
         
         let call_node = self.parser.call_expr_nodes[node_ref]
+        
+        # Check if this is a struct instantiation
+        if self.type_context.is_struct(call_node.callee):
+            return self.check_struct_instantiation(call_node.callee, call_node.arguments, call_node.location)
         
         # Check if function exists
         if not self.symbol_table.is_declared(call_node.callee):
@@ -277,6 +344,101 @@ struct TypeChecker:
         # For user-defined functions, we'd look up the signature
         # For now, return Unknown as we need more infrastructure
         return Type("Unknown")
+    
+    fn check_struct_instantiation(inout self, struct_name: String, arguments: List[ASTNodeRef], location: SourceLocation) -> Type:
+        """Check a struct instantiation.
+        
+        Args:
+            struct_name: The name of the struct to instantiate.
+            arguments: Constructor arguments.
+            location: Source location for error reporting.
+            
+        Returns:
+            The struct type.
+        """
+        let struct_info = self.type_context.lookup_struct(struct_name)
+        
+        # Check argument count matches field count (simplified)
+        # TODO: Handle named arguments and default values properly
+        if len(arguments) > len(struct_info.fields):
+            self.error(
+                "Too many arguments for struct '" + struct_name + "' (expected " + 
+                str(len(struct_info.fields)) + ", got " + str(len(arguments)) + ")",
+                location
+            )
+        
+        # Check each argument type
+        for i in range(len(arguments)):
+            let arg_type = self.check_expression(arguments[i])
+            if i < len(struct_info.fields):
+                let expected_type = struct_info.fields[i].field_type
+                if not arg_type.is_compatible_with(expected_type):
+                    self.error(
+                        "Type mismatch for field '" + struct_info.fields[i].name + 
+                        "': expected " + expected_type.name + ", got " + arg_type.name,
+                        location
+                    )
+        
+        return Type(struct_name, is_struct=True)
+    
+    fn check_member_access(inout self, node_ref: ASTNodeRef) -> Type:
+        """Check a member access (field or method).
+        
+        Args:
+            node_ref: The member access node reference.
+            
+        Returns:
+            The type of the member.
+        """
+        # Get member access node
+        if node_ref < 0 or node_ref >= len(self.parser.member_access_nodes):
+            self.error("Invalid member access reference", SourceLocation("", 0, 0))
+            return Type("Unknown")
+        
+        let member_node = self.parser.member_access_nodes[node_ref]
+        
+        # Check the object expression type
+        let object_type = self.check_expression(member_node.object)
+        
+        # Verify it's a struct type
+        if not object_type.is_struct:
+            self.error(
+                "Member access on non-struct type '" + object_type.name + "'",
+                member_node.location
+            )
+            return Type("Unknown")
+        
+        # Look up the struct
+        let struct_info = self.type_context.lookup_struct(object_type.name)
+        
+        # Check if it's a method call or field access
+        if member_node.is_method_call:
+            # Method call - verify method exists
+            if not struct_info.has_method(member_node.member):
+                self.error(
+                    "Struct '" + object_type.name + "' has no method '" + member_node.member + "'",
+                    member_node.location
+                )
+                return Type("Unknown")
+            
+            # Get method info
+            let method_info = struct_info.get_method(member_node.member)
+            
+            # Check argument types
+            # TODO: Add parameter type checking when method parameter info is stored
+            for i in range(len(member_node.arguments)):
+                _ = self.check_expression(member_node.arguments[i])
+            
+            return method_info.return_type
+        else:
+            # Field access - verify field exists
+            let field_type = struct_info.get_field_type(member_node.member)
+            if field_type.name == "Unknown":
+                self.error(
+                    "Struct '" + object_type.name + "' has no field '" + member_node.member + "'",
+                    member_node.location
+                )
+            return field_type
     
     fn check_unary_expr(inout self, node_ref: ASTNodeRef) -> Type:
         """Check a unary expression.
