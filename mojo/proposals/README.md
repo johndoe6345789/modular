@@ -83,6 +83,7 @@ These proposals are still being discussed or refined.
 |----------|-------------|--------|
 | [edge-case-behaviors](edge-case-behaviors.md) | Edge case behavior definitions | Draft |
 | [mojo-and-dynamism](mojo-and-dynamism.md) | Mojo and dynamic features | Proposed |
+| [open-source-compiler](open-source-compiler.md) | Open source Mojo compiler design specification | Proposed |
 | [struct-extensions](struct-extensions.md) | Struct extension mechanism | Draft |
 
 ## Abandoned Proposals
