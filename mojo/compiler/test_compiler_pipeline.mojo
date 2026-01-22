@@ -83,12 +83,13 @@ fn test_mlir_generator():
     var generator = MLIRGenerator()
     
     # Create a simple AST
-    from src.frontend.parser import AST, ASTNode
+    from src.frontend.parser import AST
+    from src.frontend.ast import ModuleNode
     from src.frontend.source_location import SourceLocation
     
     let loc = SourceLocation("test.mojo", 1, 1)
-    var node = ASTNode(loc)
-    var ast = AST(node)
+    var module = ModuleNode(loc)
+    var ast = AST(module, "test.mojo")
     
     print("Generating MLIR from AST...")
     let mlir_code = generator.generate(ast)
