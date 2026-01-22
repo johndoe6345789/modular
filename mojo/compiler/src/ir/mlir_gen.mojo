@@ -512,9 +512,9 @@ struct MLIRGenerator:
         else:
             # Collection iteration: use Iterable protocol
             self.emit(indent + "// Collection iteration: " + for_node.iterator + " in " + collection_ssa)
-            self.emit(indent + "// Call " + collection_ssa + ".__iter__() to get iterator")
+            self.emit(indent + "// Phase 3: Iterable protocol")
             let iterator_ssa = self.next_ssa_value()
-            self.emit(indent + iterator_ssa + " = call @" + collection_ssa + ".__iter__() : () -> !Iterator")
+            self.emit(indent + "// " + iterator_ssa + " = mojo.call_method " + collection_ssa + ", \"__iter__\" : () -> !Iterator")
             
             # Generate while loop for iteration
             self.emit(indent + "scf.while () : () -> () {")
@@ -522,11 +522,11 @@ struct MLIRGenerator:
             
             # Call __next__() on iterator
             let next_val = self.next_ssa_value()
-            self.emit(self.get_indent() + next_val + " = call @" + iterator_ssa + ".__next__() : () -> !Optional")
+            self.emit(self.get_indent() + "// " + next_val + " = mojo.call_method " + iterator_ssa + ", \"__next__\" : () -> !Optional")
             
             # Check if value is present
             let has_value = self.next_ssa_value()
-            self.emit(self.get_indent() + has_value + " = call @Optional.has_value(" + next_val + ") : (!Optional) -> i1")
+            self.emit(self.get_indent() + "// " + has_value + " = mojo.call_method " + next_val + ", \"has_value\" : () -> i1")
             self.emit(self.get_indent() + "scf.condition(" + has_value + ")")
             
             self.indent_level -= 1
@@ -535,7 +535,7 @@ struct MLIRGenerator:
             
             # Extract value from Optional
             let value_ssa = self.next_ssa_value()
-            self.emit(self.get_indent() + value_ssa + " = call @Optional.value(" + next_val + ") : (!Optional) -> i64")
+            self.emit(self.get_indent() + "// " + value_ssa + " = mojo.call_method " + next_val + ", \"value\" : () -> i64")
             
             # Map iterator to extracted value
             self.identifier_map[for_node.iterator] = value_ssa

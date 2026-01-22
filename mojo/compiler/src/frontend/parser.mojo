@@ -299,6 +299,11 @@ struct Parser:
                 self.error("Expected 'var' for field or 'fn' for method in struct body")
                 self.advance()  # Skip unexpected token
         
+        # Store struct node
+        self.struct_nodes.append(struct_node)
+        let node_ref = len(self.struct_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.STRUCT)
+        
         return struct_node
     
     fn parse_struct_field(inout self) -> FieldNode:
@@ -389,6 +394,11 @@ struct Parser:
             else:
                 self.error("Expected method signature in trait body (traits can only contain 'fn' declarations)")
                 self.advance()  # Skip unexpected token
+        
+        # Store trait node
+        self.trait_nodes.append(trait_node)
+        let node_ref = len(self.trait_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.TRAIT)
         
         return trait_node
     
