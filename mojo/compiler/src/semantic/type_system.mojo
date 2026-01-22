@@ -222,7 +222,6 @@ struct Type:
     var is_mutable_reference: Bool  # &mut T
     var is_struct: Bool  # Track if this is a struct type
     var type_params: List[Type]  # Type parameters for generics
-    var element_type: Optional[String]  # For containers like List[T] (deprecated in favor of type_params)
     
     fn __init__(inout self, name: String, is_parametric: Bool = False, is_reference: Bool = False, is_struct: Bool = False):
         """Initialize a type.
@@ -239,7 +238,6 @@ struct Type:
         self.is_mutable_reference = False
         self.is_struct = is_struct
         self.type_params = List[Type]()
-        self.element_type = None
     
     fn is_builtin(self) -> Bool:
         """Check if this is a builtin type.
@@ -324,7 +322,7 @@ struct Type:
             A new Type with type parameters substituted.
         """
         # If this is a type parameter itself, substitute it
-        if self.name in substitutions.keys():
+        if self.name in substitutions:
             return substitutions[self.name]
         
         # If this is a parametric type, recursively substitute type parameters

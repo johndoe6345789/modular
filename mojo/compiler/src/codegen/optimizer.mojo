@@ -120,22 +120,7 @@ struct Optimizer:
         # 3. Evaluate operations at compile time
         # 4. Replace operations with folded constants
         
-        # Simplified implementation: Look for consecutive constant definitions
-        # followed by arithmetic operations
-        var lines = mlir_code.split("\n")
-        var constant_map = Dict[String, String]()  # SSA value -> constant value
-        
-        for i in range(len(lines)):
-            let line = lines[i]
-            # Match: %value = arith.constant NUMBER : TYPE
-            if "arith.constant" in line and " = " in line:
-                let parts = line.split(" = ")
-                if len(parts) >= 2:
-                    let ssa_name = parts[0].strip()
-                    # Extract constant value (simplified)
-                    if "arith.constant" in parts[1]:
-                        # Store for potential folding
-                        pass
+        # TODO: Implement full constant folding with SSA analysis
         
         # For Phase 4, return result with basic optimizations applied
         return result

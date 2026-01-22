@@ -48,7 +48,8 @@ fn use_references():
     # Check for ampersand token
     var has_ampersand = False
     for i in range(len(lexer.tokens)):
-        if lexer.tokens[i].kind.kind == 213:  # AMPERSAND
+        let kind = lexer.tokens[i].kind.kind
+        if kind == 213:  # TokenKind.AMPERSAND
             has_ampersand = True
             break
     
@@ -60,7 +61,8 @@ fn use_references():
     # Check for mut keyword
     var has_mut = False
     for i in range(len(lexer.tokens)):
-        if lexer.tokens[i].kind.kind == 20:  # MUT
+        let kind = lexer.tokens[i].kind.kind
+        if kind == 20:  # TokenKind.MUT
             has_mut = True
             break
     

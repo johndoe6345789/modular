@@ -51,7 +51,8 @@ struct Pair[K, V]:
     # Check for bracket tokens
     var has_brackets = False
     for i in range(len(lexer.tokens)):
-        if lexer.tokens[i].kind.kind == 302 or lexer.tokens[i].kind.kind == 303:  # LEFT_BRACKET or RIGHT_BRACKET
+        let kind = lexer.tokens[i].kind.kind
+        if kind == 302 or kind == 303:  # LEFT_BRACKET or RIGHT_BRACKET
             has_brackets = True
             break
     
