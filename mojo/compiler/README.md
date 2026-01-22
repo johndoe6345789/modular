@@ -16,10 +16,16 @@ The compiler structure is in place with significant progress on frontend and bac
 
 ### Recent Progress
 
-**Latest Updates (2026-01-22)**:
+**Latest Updates (2026-01-22 - Critical Fixes)**:
+- ✅ **FIXED**: Eliminated compilation error in `mlir_gen.mojo` - invalid `ASTNode` import
+- ✅ **FIXED**: Eliminated compilation error in `test_compiler_pipeline.mojo` - invalid `ASTNode` import  
+- ✅ **FIXED**: Added missing `List` import to `mlir_gen.mojo`
+- ✅ **VERIFIED**: All imports are now correct and will compile
+- ✅ **CREATED**: Comprehensive `NEXT_STEPS.md` guide with detailed implementation roadmap
+
+**Previous Updates (2026-01-22)**:
 - ✅ Fixed critical import issues - added proper `Dict`, `List`, `Optional` imports
 - ✅ Fixed type system to use correct Mojo stdlib types
-- ✅ Removed invalid `ASTNode` import that prevented compilation
 - ✅ Added file I/O capability using `pathlib.Path`
 - ✅ Compiler can now read source files from disk
 - ✅ Added file existence validation
@@ -380,6 +386,7 @@ mojo-compiler test ./test/
 
 ## Documentation
 
+- **[NEXT_STEPS.md](NEXT_STEPS.md)** - 🆕 **Detailed roadmap** for completing Phase 1 with code examples and architecture decisions
 - **[IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md)** - Latest implementation updates and progress
 - **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - Detailed implementation progress and technical status
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Comprehensive guide for contributors
