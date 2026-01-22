@@ -229,12 +229,48 @@ struct Lexer:
         if ch == "/":
             self.advance()
             return Token(TokenKind(TokenKind.SLASH), "/", SourceLocation(self.filename, start_line, start_column))
+        if ch == "%":
+            self.advance()
+            return Token(TokenKind(TokenKind.PERCENT), "%", SourceLocation(self.filename, start_line, start_column))
         if ch == "=":
             self.advance()
             if self.peek_char() == "=":
                 self.advance()
                 return Token(TokenKind(TokenKind.DOUBLE_EQUAL), "==", SourceLocation(self.filename, start_line, start_column))
             return Token(TokenKind(TokenKind.EQUAL), "=", SourceLocation(self.filename, start_line, start_column))
+        if ch == "!":
+            self.advance()
+            if self.peek_char() == "=":
+                self.advance()
+                return Token(TokenKind(TokenKind.NOT_EQUAL), "!=", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.EXCLAMATION), "!", SourceLocation(self.filename, start_line, start_column))
+        if ch == "<":
+            self.advance()
+            if self.peek_char() == "=":
+                self.advance()
+                return Token(TokenKind(TokenKind.LESS_EQUAL), "<=", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.LESS), "<", SourceLocation(self.filename, start_line, start_column))
+        if ch == ">":
+            self.advance()
+            if self.peek_char() == "=":
+                self.advance()
+                return Token(TokenKind(TokenKind.GREATER_EQUAL), ">=", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.GREATER), ">", SourceLocation(self.filename, start_line, start_column))
+        if ch == "&":
+            self.advance()
+            if self.peek_char() == "&":
+                self.advance()
+                return Token(TokenKind(TokenKind.DOUBLE_AMPERSAND), "&&", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.AMPERSAND), "&", SourceLocation(self.filename, start_line, start_column))
+        if ch == "|":
+            self.advance()
+            if self.peek_char() == "|":
+                self.advance()
+                return Token(TokenKind(TokenKind.DOUBLE_PIPE), "||", SourceLocation(self.filename, start_line, start_column))
+            return Token(TokenKind(TokenKind.PIPE), "|", SourceLocation(self.filename, start_line, start_column))
+        if ch == "~":
+            self.advance()
+            return Token(TokenKind(TokenKind.TILDE), "~", SourceLocation(self.filename, start_line, start_column))
         if ch == "(":
             self.advance()
             return Token(TokenKind(TokenKind.LEFT_PAREN), "(", SourceLocation(self.filename, start_line, start_column))

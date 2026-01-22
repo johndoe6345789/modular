@@ -6,7 +6,7 @@ This directory contains the implementation of the open source Mojo compiler as o
 
 **Last Updated**: January 22, 2026  
 **Phase 1**: ✅ Complete - Basic compiler with Hello World support  
-**Phase 2**: 🔄 60% Complete - Control flow and structs  
+**Phase 2**: 🔄 75% Complete - Control flow, operators, and structs  
 
 The compiler now supports:
 
@@ -22,16 +22,28 @@ The compiler now supports:
 
 ### Phase 2 Features (In Progress) 🚀
 - ✅ **Control Flow**: If/elif/else, while, for loops - parsing and MLIR generation
+- ✅ **Comparison Operators**: <, >, <=, >=, ==, != - full support
+- ✅ **Boolean Operators**: && (AND), || (OR) - full support
+- ✅ **Unary Operators**: - (negation), ! (NOT), ~ (bitwise NOT) - full support
 - ✅ **Struct Definitions**: Parsing structs with fields and methods
 - ✅ **Break/Continue/Pass**: Loop control statements
 - ✅ **Boolean Literals**: True/False support
-- ⚠️ **Struct Type Checking**: In progress
+- ⚠️ **Struct Type Checking**: Planned
 - ⚠️ **Struct Instantiation**: Planned
 - ⚠️ **Method Calls**: Planned
 
 **See [PHASE_2_PROGRESS.md](PHASE_2_PROGRESS.md) for detailed Phase 2 status.**
 
 ### Recent Progress
+
+**Phase 2 Operators Complete! (2026-01-22 - All Operators)**:
+- ✅ **Comparison Operators**: <, >, <=, >=, ==, != with lexer, parser, and MLIR generation
+- ✅ **Boolean Operators**: && (AND), || (OR) with proper precedence
+- ✅ **Unary Operators**: -, !, ~ with full MLIR support
+- ✅ **Operator Precedence**: Proper handling of complex expressions
+- ✅ **Lexer Enhancements**: Added all missing operator tokens
+- ✅ **Parser Enhancements**: Unary expression parsing with recursion
+- ✅ **MLIR Generation**: arith.cmpi, arith.andi, arith.ori, arith.xori operations
 
 **Phase 2 Started! (2026-01-22 - Control Flow & Structs)**:
 - ✅ **Control Flow Parsing**: If/elif/else, while, for loops
@@ -42,8 +54,6 @@ The compiler now supports:
 - ✅ **Test Suite**: Comprehensive tests for control flow
 - ✅ **Examples**: New example programs demonstrating Phase 2 features
 - ✅ **Documentation**: Phase 2 progress tracking
-
-**Phase 1 Complete! (2026-01-22 - Backend & Runtime)**:
 - ✅ **Runtime Library**: Implemented in C with print functions
 - ✅ **LLVM Backend**: Complete MLIR to LLVM IR translation
 - ✅ **Object Generation**: Compilation to object files via llc
