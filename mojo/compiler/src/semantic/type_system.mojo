@@ -21,6 +21,8 @@ This module defines the type system including:
 - Reference types
 """
 
+from collections import Dict, Optional
+
 
 struct Type:
     """Represents a type in the Mojo type system.
