@@ -20,6 +20,7 @@ The symbol table tracks:
 - Scoping information
 """
 
+from collections import Dict, Optional
 from .type_system import Type
 
 

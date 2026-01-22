@@ -20,7 +20,10 @@ The type checker performs semantic analysis on the AST:
 - Trait resolution
 """
 
-from ..frontend.parser import AST, ASTNode
+from collections import List
+from ..frontend.parser import AST
+from ..frontend.ast import ModuleNode, ASTNodeRef
+from ..frontend.source_location import SourceLocation
 from .symbol_table import SymbolTable
 from .type_system import Type, TypeContext
 
@@ -60,7 +63,7 @@ struct TypeChecker:
         self.check_node(ast.root)
         return len(self.errors) == 0
     
-    fn check_node(inout self, node: ASTNode):
+    fn check_node(inout self, node: ModuleNode):
         """Type check a single AST node.
         
         Args:
@@ -70,11 +73,11 @@ struct TypeChecker:
         # This should dispatch to specific methods based on node type
         pass
     
-    fn check_function(inout self, node: ASTNode) -> Type:
+    fn check_function(inout self, node: ASTNodeRef) -> Type:
         """Type check a function definition.
         
         Args:
-            node: The function node.
+            node: The function node reference.
             
         Returns:
             The function type.
@@ -85,11 +88,11 @@ struct TypeChecker:
         # - Check function body
         return Type("Function")
     
-    fn check_expression(inout self, node: ASTNode) -> Type:
+    fn check_expression(inout self, node: ASTNodeRef) -> Type:
         """Type check an expression.
         
         Args:
-            node: The expression node.
+            node: The expression node reference.
             
         Returns:
             The type of the expression.
@@ -100,11 +103,11 @@ struct TypeChecker:
         # - Check operator compatibility
         return Type("Unknown")
     
-    fn check_statement(inout self, node: ASTNode):
+    fn check_statement(inout self, node: ASTNodeRef):
         """Type check a statement.
         
         Args:
-            node: The statement node.
+            node: The statement node reference.
         """
         # TODO: Implement statement type checking
         # - Check variable declarations
@@ -112,11 +115,11 @@ struct TypeChecker:
         # - Check control flow
         pass
     
-    fn infer_type(inout self, node: ASTNode) -> Type:
+    fn infer_type(inout self, node: ASTNodeRef) -> Type:
         """Infer the type of an expression.
         
         Args:
-            node: The expression node.
+            node: The expression node reference.
             
         Returns:
             The inferred type.
@@ -124,11 +127,11 @@ struct TypeChecker:
         # TODO: Implement type inference
         return Type("Unknown")
     
-    fn check_ownership(inout self, node: ASTNode) -> Bool:
+    fn check_ownership(inout self, node: ASTNodeRef) -> Bool:
         """Check ownership rules for a node.
         
         Args:
-            node: The node to check.
+            node: The node reference to check.
             
         Returns:
             True if ownership rules are satisfied.

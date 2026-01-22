@@ -17,6 +17,7 @@ This module defines all AST node types used by the parser.
 The AST represents the syntactic structure of Mojo programs.
 """
 
+from collections import List
 from .source_location import SourceLocation
 
 

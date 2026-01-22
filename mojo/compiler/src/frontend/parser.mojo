@@ -23,6 +23,7 @@ It handles:
 - Decorators
 """
 
+from collections import List
 from .lexer import Lexer, Token, TokenKind
 from .source_location import SourceLocation
 from .ast import (
