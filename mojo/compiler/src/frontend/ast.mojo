@@ -51,6 +51,7 @@ struct ASTNodeKind:
     alias FLOAT_LITERAL = 25
     alias STRING_LITERAL = 26
     alias BOOL_LITERAL = 27
+    alias MEMBER_ACCESS = 28
     
     # Types
     alias TYPE_NAME = 30
@@ -278,6 +279,48 @@ struct CallExprNode:
     
     fn add_argument(inout self, arg: ASTNodeRef):
         """Add an argument to the call.
+        
+        Args:
+            arg: The argument expression.
+        """
+        self.arguments.append(arg)
+
+
+struct MemberAccessNode:
+    """Represents a member access expression.
+    
+    Example: obj.field, point.x, rect.area()
+    """
+    
+    var object: ASTNodeRef  # The object being accessed
+    var member: String  # The member name (field or method)
+    var is_method_call: Bool  # True if this is a method call
+    var arguments: List[ASTNodeRef]  # Arguments if it's a method call
+    var location: SourceLocation
+    
+    fn __init__(
+        inout self,
+        object: ASTNodeRef,
+        member: String,
+        location: SourceLocation,
+        is_method_call: Bool = False
+    ):
+        """Initialize a member access node.
+        
+        Args:
+            object: The object whose member is being accessed.
+            member: The name of the member.
+            location: Source location of the access.
+            is_method_call: Whether this is a method call.
+        """
+        self.object = object
+        self.member = member
+        self.location = location
+        self.is_method_call = is_method_call
+        self.arguments = List[ASTNodeRef]()
+    
+    fn add_argument(inout self, arg: ASTNodeRef):
+        """Add an argument to the method call.
         
         Args:
             arg: The argument expression.
