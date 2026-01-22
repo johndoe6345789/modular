@@ -480,6 +480,12 @@ struct MLIRGenerator:
     fn generate_for_statement(inout self, node_ref: ASTNodeRef):
         """Generate MLIR for a for loop using scf.for.
         
+        Phase 3 enhancement: Improved collection iteration support.
+        For collections implementing Iterable trait, generates:
+        1. Call to __iter__() to get iterator
+        2. Loop calling __next__() until exhausted
+        3. Body execution with yielded values
+        
         Args:
             node_ref: Reference to the for statement node.
         """
@@ -489,27 +495,77 @@ struct MLIRGenerator:
         let for_node = self.parser.for_stmt_nodes[node_ref]
         let indent = self.get_indent()
         
-        # For now, generate a simplified version
-        # TODO: Implement proper iteration over collections
-        # This is a placeholder that assumes range-based iteration
-        
+        # Generate collection expression
         let collection_ssa = self.generate_expression(for_node.collection)
         
-        # Generate scf.for with range bounds
-        # This is simplified - real implementation needs collection iteration
-        self.emit(indent + "// for " + for_node.iterator + " in " + collection_ssa)
-        self.emit(indent + "scf.for %iv = %c0 to %count step %c1 {")
-        self.indent_level += 1
+        # Check if this is a range() call (simplified iteration)
+        let is_range = self._is_range_call_mlir(for_node.collection)
         
-        # Map iterator to induction variable
-        self.identifier_map[for_node.iterator] = "%iv"
+        if is_range:
+            # Range-based iteration: use scf.for directly
+            self.emit(indent + "// Range-based for loop: " + for_node.iterator)
+            self.emit(indent + "scf.for %iv = %c0 to %count step %c1 {")
+            self.indent_level += 1
+            
+            # Map iterator to induction variable
+            self.identifier_map[for_node.iterator] = "%iv"
+        else:
+            # Collection iteration: use Iterable protocol
+            self.emit(indent + "// Collection iteration: " + for_node.iterator + " in " + collection_ssa)
+            self.emit(indent + "// Call " + collection_ssa + ".__iter__() to get iterator")
+            let iterator_ssa = self.next_ssa_value()
+            self.emit(indent + iterator_ssa + " = call @" + collection_ssa + ".__iter__() : () -> !Iterator")
+            
+            # Generate while loop for iteration
+            self.emit(indent + "scf.while () : () -> () {")
+            self.indent_level += 1
+            
+            # Call __next__() on iterator
+            let next_val = self.next_ssa_value()
+            self.emit(self.get_indent() + next_val + " = call @" + iterator_ssa + ".__next__() : () -> !Optional")
+            
+            # Check if value is present
+            let has_value = self.next_ssa_value()
+            self.emit(self.get_indent() + has_value + " = call @Optional.has_value(" + next_val + ") : (!Optional) -> i1")
+            self.emit(self.get_indent() + "scf.condition(" + has_value + ")")
+            
+            self.indent_level -= 1
+            self.emit(indent + "} do {")
+            self.indent_level += 1
+            
+            # Extract value from Optional
+            let value_ssa = self.next_ssa_value()
+            self.emit(self.get_indent() + value_ssa + " = call @Optional.value(" + next_val + ") : (!Optional) -> i64")
+            
+            # Map iterator to extracted value
+            self.identifier_map[for_node.iterator] = value_ssa
         
-        # Generate loop body
+        # Generate loop body (common for both paths)
         for i in range(len(for_node.body)):
             self.generate_statement(for_node.body[i])
         
         self.indent_level -= 1
         self.emit(indent + "}")
+    
+    fn _is_range_call_mlir(self, expr_ref: ASTNodeRef) -> Bool:
+        """Check if an expression is a call to range().
+        
+        Args:
+            expr_ref: The expression node reference.
+            
+        Returns:
+            True if the expression is a range() call.
+        """
+        let kind = self.parser.node_store.get_node_kind(expr_ref)
+        if kind == ASTNodeKind.CALL_EXPR:
+            if expr_ref >= 0 and expr_ref < len(self.parser.call_expr_nodes):
+                let call_node = self.parser.call_expr_nodes[expr_ref]
+                let func_kind = self.parser.node_store.get_node_kind(call_node.function)
+                if func_kind == ASTNodeKind.IDENTIFIER_EXPR:
+                    if call_node.function >= 0 and call_node.function < len(self.parser.identifier_nodes):
+                        let id_node = self.parser.identifier_nodes[call_node.function]
+                        return id_node.name == "range"
+        return False
     
     fn generate_expression(inout self, node_ref: ASTNodeRef) -> String:
         """Generate MLIR for an expression.

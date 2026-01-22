@@ -576,9 +576,82 @@ struct TypeChecker:
             self.check_var_decl(node_ref)
         elif kind == ASTNodeKind.RETURN_STMT:
             self.check_return_stmt(node_ref)
+        elif kind == ASTNodeKind.FOR_STMT:
+            self.check_for_stmt(node_ref)
         elif kind == ASTNodeKind.EXPR_STMT:
             # Expression statement - just check the expression
             _ = self.check_expression(node_ref)
+    
+    fn check_for_stmt(inout self, node_ref: ASTNodeRef):
+        """Type check a for loop statement.
+        
+        For loops iterate over collections that implement the Iterable trait.
+        Phase 3 adds proper collection iteration support.
+        
+        Args:
+            node_ref: The for statement node reference.
+        """
+        # Get for statement node
+        if node_ref < 0 or node_ref >= len(self.parser.for_stmt_nodes):
+            self.error("Invalid for statement reference", SourceLocation("", 0, 0))
+            return
+        
+        let for_node = self.parser.for_stmt_nodes[node_ref]
+        
+        # Check collection expression type
+        let collection_type = self.check_expression(for_node.collection)
+        
+        # Validate that collection is iterable
+        # For Phase 3, we check if the type implements Iterable trait
+        # Special case: range() calls are always valid
+        let is_range_call = self._is_range_call(for_node.collection)
+        
+        if not is_range_call:
+            # Check if collection type is a struct that implements Iterable
+            if self.type_context.is_struct(collection_type.name):
+                if not self.type_context.check_trait_conformance(collection_type.name, "Iterable"):
+                    self.error(
+                        "Type '" + collection_type.name + "' does not implement Iterable trait and cannot be used in for loop",
+                        for_node.location
+                    )
+            # For builtin types, we could add special handling here
+        
+        # Enter new scope for loop body
+        self.symbol_table.enter_scope()
+        
+        # Add iterator variable to symbol table
+        # For now, assume iterator type is Int (from range) or element type from collection
+        let iterator_type = Type("Int")  # Simplified for Phase 3
+        if not self.symbol_table.insert(for_node.iterator, iterator_type):
+            self.error("Failed to declare iterator variable: " + for_node.iterator, for_node.location)
+        
+        # Check loop body statements
+        for i in range(len(for_node.body)):
+            self.check_statement(for_node.body[i])
+        
+        # Exit loop scope
+        self.symbol_table.exit_scope()
+    
+    fn _is_range_call(self, expr_ref: ASTNodeRef) -> Bool:
+        """Check if an expression is a call to range().
+        
+        Args:
+            expr_ref: The expression node reference.
+            
+        Returns:
+            True if the expression is a range() call.
+        """
+        let kind = self.parser.node_store.get_node_kind(expr_ref)
+        if kind == ASTNodeKind.CALL_EXPR:
+            if expr_ref >= 0 and expr_ref < len(self.parser.call_expr_nodes):
+                let call_node = self.parser.call_expr_nodes[expr_ref]
+                # Check if function is an identifier named "range"
+                let func_kind = self.parser.node_store.get_node_kind(call_node.function)
+                if func_kind == ASTNodeKind.IDENTIFIER_EXPR:
+                    if call_node.function >= 0 and call_node.function < len(self.parser.identifier_nodes):
+                        let id_node = self.parser.identifier_nodes[call_node.function]
+                        return id_node.name == "range"
+        return False
     
     fn check_var_decl(inout self, node_ref: ASTNodeRef):
         """Check a variable declaration.

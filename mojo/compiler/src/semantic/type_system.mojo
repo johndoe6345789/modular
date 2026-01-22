@@ -351,6 +351,24 @@ struct TypeContext:
         # Special types
         self.types["NoneType"] = Type("NoneType")
         self.types["Unknown"] = Type("Unknown")
+        
+        # Register builtin collection traits
+        self._register_builtin_traits()
+    
+    fn _register_builtin_traits(inout self):
+        """Register builtin traits like Iterable.
+        
+        These traits enable collection iteration and other standard protocols.
+        """
+        # Iterable trait - enables for loop iteration
+        var iterable_trait = TraitInfo("Iterable")
+        iterable_trait.add_required_method("__iter__", Type("Iterator"))
+        self.register_trait(iterable_trait)
+        
+        # Iterator trait - returned by __iter__
+        var iterator_trait = TraitInfo("Iterator")
+        iterator_trait.add_required_method("__next__", Type("Optional"))
+        self.register_trait(iterator_trait)
     
     fn register_type(inout self, name: String, type: Type):
         """Register a user-defined type.
