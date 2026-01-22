@@ -75,7 +75,12 @@ The Mojo compiler is fully integrated with the repository's CI/CD pipeline:
 ./bazelw test //mojo/compiler:test_type_checker
 ```
 
-**CI Configuration**: Tests are configured to run on all supported platforms with appropriate filters and timeouts.
+**CI Configuration**: 
+- **Platforms**: Tests run on `large-oss-linux` runners
+- **Test Filters**: Excludes tests tagged with `skip-external-ci-*` and `requires-network`
+- **Build Filters**: Same filtering applied to build targets
+- **Manual Tests**: End-to-end tests requiring LLVM tools are tagged `manual` and must be run explicitly
+- **Timeout**: Default test timeouts apply (configurable per test target)
 
 ### Recent Progress
 
