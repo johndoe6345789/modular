@@ -7,13 +7,30 @@ in mind.
 
 ## Contributing & development
 
-### 1. What platforms does Mojo support?
+### 1. Where is the core source for Mojo?
+
+The core source code for the Mojo programming language is located in the
+`/mojo/stdlib/` directory of this repository. Specifically:
+
+- **Standard library implementation**: `/mojo/stdlib/std/` contains all the core
+  modules (collections, math, memory, os, etc.)
+- **Tests**: `/mojo/stdlib/test/` contains the test suite
+- **Benchmarks**: `/mojo/stdlib/benchmarks/` contains performance benchmarks
+- **Documentation**: `/mojo/stdlib/docs/` contains developer documentation
+
+You can browse the source code on GitHub at
+[github.com/modular/modular/tree/main/mojo/stdlib](https://github.com/modular/modular/tree/main/mojo/stdlib).
+
+For information about building and contributing to the standard library, see
+the [standard library development guide](./development.md).
+
+### 2. What platforms does Mojo support?
 
 The nightly Mojo compiler currently works on Linux and macOS. The standard
 library works on both platforms too in conjunction with the compiler. Windows is
 currently not a supported platform.
 
-### 2. I hit a bug! What do I do?
+### 3. I hit a bug! What do I do?
 
 Don’t Panic! 😃 Check out our
 [bug submission guide](../../CONTRIBUTING.md#submitting-bugs) to make sure you
