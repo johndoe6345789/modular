@@ -132,8 +132,52 @@ struct MLIRGenerator:
         Returns:
             The MLIR type representation.
         """
-        # TODO: Implement type conversion
-        # Int -> i64
-        # Float64 -> f64
-        # String -> !mojo.value<String>
-        return "i64"
+        # Map Mojo types to MLIR types
+        if type_name == "Int" or type_name == "Int64":
+            return "i64"
+        elif type_name == "Int32":
+            return "i32"
+        elif type_name == "Int16":
+            return "i16"
+        elif type_name == "Int8":
+            return "i8"
+        elif type_name == "UInt64":
+            return "i64"
+        elif type_name == "UInt32":
+            return "i32"
+        elif type_name == "UInt16":
+            return "i16"
+        elif type_name == "UInt8":
+            return "i8"
+        elif type_name == "Float64":
+            return "f64"
+        elif type_name == "Float32":
+            return "f32"
+        elif type_name == "Bool":
+            return "i1"
+        elif type_name == "String":
+            return "!mojo.value<String>"
+        elif type_name == "NoneType" or type_name == "None":
+            return "!mojo.none"
+        else:
+            # Custom types
+            return "!mojo.value<" + type_name + ">"
+    
+    fn generate_builtin_call(inout self, function_name: String, args: List[String]) -> String:
+        """Generate MLIR for builtin function calls like print.
+        
+        Args:
+            function_name: The builtin function name.
+            args: The argument value names.
+            
+        Returns:
+            The result value name (if any).
+        """
+        if function_name == "print":
+            # Generate print call
+            self.emit("  mojo.print " + ", ".join(args))
+            return ""
+        else:
+            # Generic builtin call
+            self.emit("  mojo.call_builtin @" + function_name + "(" + ", ".join(args) + ")")
+            return "%result"

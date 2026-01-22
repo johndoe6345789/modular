@@ -47,22 +47,26 @@ struct Optimizer:
         Returns:
             The optimized MLIR code.
         """
-        # TODO: Implement optimization passes
+        print("  [Optimizer] Starting optimization (level", self.optimization_level, ")")
         var result = mlir_code
         
         if self.optimization_level > 0:
+            print("  [Optimizer] Applying basic optimizations...")
             result = self.inline_functions(result)
             result = self.constant_fold(result)
             result = self.eliminate_dead_code(result)
         
         if self.optimization_level > 1:
+            print("  [Optimizer] Applying advanced optimizations...")
             result = self.optimize_loops(result)
             result = self.eliminate_moves(result)
         
         if self.optimization_level > 2:
+            print("  [Optimizer] Applying aggressive optimizations...")
             result = self.devirtualize_traits(result)
             result = self.aggressive_inline(result)
         
+        print("  [Optimizer] Optimization complete")
         return result
     
     fn inline_functions(self, mlir_code: String) -> String:

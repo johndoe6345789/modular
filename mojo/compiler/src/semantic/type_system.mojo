@@ -35,16 +35,21 @@ struct Type:
     
     var name: String
     var is_parametric: Bool
+    var is_reference: Bool
+    var element_type: Optional[String]  # For containers like List[T]
     
-    fn __init__(inout self, name: String, is_parametric: Bool = False):
+    fn __init__(inout self, name: String, is_parametric: Bool = False, is_reference: Bool = False):
         """Initialize a type.
         
         Args:
             name: The name of the type.
             is_parametric: Whether this is a parametric type.
+            is_reference: Whether this is a reference type.
         """
         self.name = name
         self.is_parametric = is_parametric
+        self.is_reference = is_reference
+        self.element_type = None
     
     fn is_builtin(self) -> Bool:
         """Check if this is a builtin type.
@@ -52,8 +57,34 @@ struct Type:
         Returns:
             True if this is a builtin type.
         """
-        # TODO: Implement builtin type checking
-        return self.name in ["Int", "Float64", "Bool", "String"]
+        let builtins = ["Int", "Float64", "Float32", "Bool", "String", "UInt8", "UInt16", "UInt32", "UInt64", "Int8", "Int16", "Int32", "Int64", "NoneType"]
+        return self.name in builtins
+    
+    fn is_numeric(self) -> Bool:
+        """Check if this is a numeric type.
+        
+        Returns:
+            True if this is a numeric type.
+        """
+        let numeric = ["Int", "Float64", "Float32", "UInt8", "UInt16", "UInt32", "UInt64", "Int8", "Int16", "Int32", "Int64"]
+        return self.name in numeric
+    
+    fn is_integer(self) -> Bool:
+        """Check if this is an integer type.
+        
+        Returns:
+            True if this is an integer type.
+        """
+        let integers = ["Int", "UInt8", "UInt16", "UInt32", "UInt64", "Int8", "Int16", "Int32", "Int64"]
+        return self.name in integers
+    
+    fn is_float(self) -> Bool:
+        """Check if this is a floating point type.
+        
+        Returns:
+            True if this is a floating point type.
+        """
+        return self.name in ["Float32", "Float64"]
     
     fn is_compatible_with(self, other: Type) -> Bool:
         """Check if this type is compatible with another type.
@@ -64,8 +95,26 @@ struct Type:
         Returns:
             True if the types are compatible.
         """
-        # TODO: Implement type compatibility checking
-        # This should handle subtyping, trait conformance, etc.
+        # Exact match
+        if self.name == other.name:
+            return True
+        
+        # Numeric type promotions
+        if self.is_numeric() and other.is_numeric():
+            # Allow implicit promotion from smaller to larger types
+            if self.is_integer() and other.is_integer():
+                return True  # Simplified: allow any integer promotion
+            if self.is_integer() and other.is_float():
+                return True  # Int to Float promotion
+        
+        # Unknown type is compatible with anything (for inference)
+        if self.name == "Unknown" or other.name == "Unknown":
+            return True
+        
+        return False
+    
+    fn __eq__(self, other: Type) -> Bool:
+        """Check equality with another type."""
         return self.name == other.name
 
 
@@ -88,11 +137,29 @@ struct TypeContext:
     
     fn register_builtin_types(inout self):
         """Register all builtin types."""
-        # TODO: Register all builtin types
+        # Integer types
         self.types["Int"] = Type("Int")
+        self.types["Int8"] = Type("Int8")
+        self.types["Int16"] = Type("Int16")
+        self.types["Int32"] = Type("Int32")
+        self.types["Int64"] = Type("Int64")
+        self.types["UInt8"] = Type("UInt8")
+        self.types["UInt16"] = Type("UInt16")
+        self.types["UInt32"] = Type("UInt32")
+        self.types["UInt64"] = Type("UInt64")
+        
+        # Floating point types
+        self.types["Float32"] = Type("Float32")
         self.types["Float64"] = Type("Float64")
+        
+        # Boolean and String
         self.types["Bool"] = Type("Bool")
         self.types["String"] = Type("String")
+        self.types["StringLiteral"] = Type("StringLiteral")
+        
+        # Special types
+        self.types["NoneType"] = Type("NoneType")
+        self.types["Unknown"] = Type("Unknown")
     
     fn register_type(inout self, name: String, type: Type):
         """Register a user-defined type.
