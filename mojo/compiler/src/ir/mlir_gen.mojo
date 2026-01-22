@@ -39,6 +39,8 @@ from ..frontend.ast import (
     ContinueStmtNode,
     PassStmtNode,
     UnaryExprNode,
+    StructNode,
+    MemberAccessNode,
     ASTNodeRef,
     ASTNodeKind,
 )
@@ -182,15 +184,48 @@ struct MLIRGenerator:
         self.emit("module {")
         self.indent_level += 1
         
-        # Generate each function declaration
+        # Generate each declaration (functions and structs)
         for decl_ref in module.declarations:
-            self.generate_function(decl_ref)
-            self.emit("")  # Blank line between functions
+            let kind = self.parser.node_store.get_node_kind(decl_ref)
+            if kind == ASTNodeKind.STRUCT:
+                self.generate_struct_definition(decl_ref)
+                self.emit("")  # Blank line
+            elif kind == ASTNodeKind.FUNCTION:
+                self.generate_function(decl_ref)
+                self.emit("")  # Blank line between functions
         
         self.indent_level -= 1
         self.emit("}")
         
         return self.output
+    
+    fn generate_struct_definition(inout self, node_ref: ASTNodeRef):
+        """Generate MLIR for a struct definition.
+        
+        For Phase 2, we emit struct type definitions as comments.
+        Full struct codegen would require LLVM struct types in MLIR.
+        
+        Args:
+            node_ref: Reference to the struct node.
+        """
+        if node_ref < 0 or node_ref >= len(self.parser.struct_nodes):
+            return
+        
+        let struct_node = self.parser.struct_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Emit struct as a comment (simplified for Phase 2)
+        self.emit(indent + "// Struct definition: " + struct_node.name)
+        self.emit(indent + "// Fields:")
+        for i in range(len(struct_node.fields)):
+            let field = struct_node.fields[i]
+            self.emit(indent + "//   " + field.name + ": " + field.field_type.name)
+        
+        if len(struct_node.methods) > 0:
+            self.emit(indent + "// Methods:")
+            for i in range(len(struct_node.methods)):
+                let method = struct_node.methods[i]
+                self.emit(indent + "//   " + method.name + "() -> " + method.return_type.name)
     
     fn generate_function(inout self, node_ref: ASTNodeRef):
         """Generate MLIR for a function definition.
@@ -456,10 +491,13 @@ struct MLIRGenerator:
         elif kind == ASTNodeKind.UNARY_EXPR:
             return self.generate_unary_expr(node_ref)
         
+        elif kind == ASTNodeKind.MEMBER_ACCESS:
+            return self.generate_member_access(node_ref)
+        
         return "%0"
     
     fn generate_call(inout self, node_ref: ASTNodeRef) -> String:
-        """Generate function call.
+        """Generate function call or struct instantiation.
         
         Args:
             node_ref: Reference to the call expression node.
@@ -472,6 +510,15 @@ struct MLIRGenerator:
         
         let call_node = self.parser.call_expr_nodes[node_ref]
         let indent = self.get_indent()
+        
+        # Check if it's a struct instantiation (heuristic: starts with uppercase)
+        # This is simplified for Phase 2 - full implementation would check type context
+        if len(call_node.callee) > 0 and call_node.callee[0].isupper():
+            # Likely a struct instantiation
+            let result = self.next_ssa_value()
+            self.emit(indent + "// Struct instantiation: " + call_node.callee)
+            self.emit(indent + result + " = arith.constant 0 : i64  // placeholder for " + call_node.callee + " instance")
+            return result
         
         # Check if it's a builtin
         if call_node.callee == "print":
@@ -622,6 +669,39 @@ struct MLIRGenerator:
         else:
             # Unknown operator, just return operand
             return operand_val
+        
+        return result
+    
+    fn generate_member_access(inout self, node_ref: ASTNodeRef) -> String:
+        """Generate member access (field or method call).
+        
+        For Phase 2, we emit simplified member access as comments.
+        Full struct codegen would require proper LLVM struct operations.
+        
+        Args:
+            node_ref: Reference to the member access node.
+            
+        Returns:
+            The result reference.
+        """
+        if node_ref >= len(self.parser.member_access_nodes):
+            return "%0"
+        
+        let member_node = self.parser.member_access_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Generate the object expression
+        let object_val = self.generate_expression(member_node.object)
+        let result = self.next_ssa_value()
+        
+        if member_node.is_method_call:
+            # Method call - emit as comment for Phase 2
+            self.emit(indent + "// Method call: " + object_val + "." + member_node.member + "()")
+            self.emit(indent + result + " = arith.constant 0 : i64  // placeholder for method result")
+        else:
+            # Field access - emit as comment for Phase 2
+            self.emit(indent + "// Field access: " + object_val + "." + member_node.member)
+            self.emit(indent + result + " = arith.constant 0 : i64  // placeholder for field value")
         
         return result
     
