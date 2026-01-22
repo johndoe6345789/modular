@@ -31,6 +31,14 @@ from ..frontend.ast import (
     IntegerLiteralNode,
     FloatLiteralNode,
     StringLiteralNode,
+    BoolLiteralNode,
+    IfStmtNode,
+    WhileStmtNode,
+    ForStmtNode,
+    BreakStmtNode,
+    ContinueStmtNode,
+    PassStmtNode,
+    UnaryExprNode,
     ASTNodeRef,
     ASTNodeKind,
 )
@@ -211,7 +219,23 @@ struct MLIRGenerator:
         let kind = self.parser.node_store.get_node_kind(node_ref)
         let indent = self.get_indent()
         
-        if kind == ASTNodeKind.RETURN_STMT:
+        # Control flow statements (Phase 2)
+        if kind == ASTNodeKind.IF_STMT:
+            self.generate_if_statement(node_ref)
+        elif kind == ASTNodeKind.WHILE_STMT:
+            self.generate_while_statement(node_ref)
+        elif kind == ASTNodeKind.FOR_STMT:
+            self.generate_for_statement(node_ref)
+        elif kind == ASTNodeKind.BREAK_STMT:
+            self.emit(indent + "cf.br ^break")  # Branch to break label
+        elif kind == ASTNodeKind.CONTINUE_STMT:
+            self.emit(indent + "cf.br ^continue")  # Branch to continue label
+        elif kind == ASTNodeKind.PASS_STMT:
+            # Pass is a no-op, just add a comment
+            self.emit(indent + "// pass")
+        
+        # Phase 1 statements
+        elif kind == ASTNodeKind.RETURN_STMT:
             # Get return node
             if node_ref < len(self.parser.return_nodes):
                 let ret_node = self.parser.return_nodes[node_ref]
@@ -234,6 +258,144 @@ struct MLIRGenerator:
             _ = self.generate_expression(node_ref)
         
         return ""
+    
+    fn generate_if_statement(inout self, node_ref: ASTNodeRef):
+        """Generate MLIR for an if statement using scf.if.
+        
+        Args:
+            node_ref: Reference to the if statement node.
+        """
+        if node_ref >= len(self.parser.if_stmt_nodes):
+            return
+        
+        let if_node = self.parser.if_stmt_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Generate condition
+        let condition_ssa = self.generate_expression(if_node.condition)
+        
+        # Generate scf.if operation
+        self.emit(indent + "scf.if " + condition_ssa + " {")
+        self.indent_level += 1
+        
+        # Generate then block
+        for i in range(len(if_node.then_block)):
+            self.generate_statement(if_node.then_block[i])
+        
+        self.indent_level -= 1
+        
+        # Generate elif blocks as nested if-else
+        if len(if_node.elif_conditions) > 0:
+            self.emit(indent + "} else {")
+            self.indent_level += 1
+            # Generate nested if for elif
+            for i in range(len(if_node.elif_conditions)):
+                let elif_cond_ssa = self.generate_expression(if_node.elif_conditions[i])
+                let elif_indent = self.get_indent()
+                self.emit(elif_indent + "scf.if " + elif_cond_ssa + " {")
+                self.indent_level += 1
+                
+                # Generate elif block
+                for j in range(len(if_node.elif_blocks[i])):
+                    self.generate_statement(if_node.elif_blocks[i][j])
+                
+                self.indent_level -= 1
+                if i < len(if_node.elif_conditions) - 1 or len(if_node.else_block) > 0:
+                    self.emit(elif_indent + "} else {")
+                    self.indent_level += 1
+                else:
+                    self.emit(elif_indent + "}")
+            
+            # Generate else block if present
+            if len(if_node.else_block) > 0:
+                for i in range(len(if_node.else_block)):
+                    self.generate_statement(if_node.else_block[i])
+                self.indent_level -= 1
+                self.emit(self.get_indent() + "}")
+            
+            self.indent_level -= 1
+            self.emit(indent + "}")
+        elif len(if_node.else_block) > 0:
+            # Just else, no elif
+            self.emit(indent + "} else {")
+            self.indent_level += 1
+            
+            for i in range(len(if_node.else_block)):
+                self.generate_statement(if_node.else_block[i])
+            
+            self.indent_level -= 1
+            self.emit(indent + "}")
+        else:
+            # No else
+            self.emit(indent + "}")
+    
+    fn generate_while_statement(inout self, node_ref: ASTNodeRef):
+        """Generate MLIR for a while loop using scf.while.
+        
+        Args:
+            node_ref: Reference to the while statement node.
+        """
+        if node_ref >= len(self.parser.while_stmt_nodes):
+            return
+        
+        let while_node = self.parser.while_stmt_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Generate scf.while - before region checks condition
+        self.emit(indent + "scf.while : () -> () {")
+        self.indent_level += 1
+        
+        # Generate condition check
+        let condition_ssa = self.generate_expression(while_node.condition)
+        self.emit(self.get_indent() + "scf.condition(" + condition_ssa + ")")
+        
+        self.indent_level -= 1
+        self.emit(indent + "} do {")
+        self.indent_level += 1
+        
+        # Generate loop body
+        for i in range(len(while_node.body)):
+            self.generate_statement(while_node.body[i])
+        
+        # Yield to continue loop
+        self.emit(self.get_indent() + "scf.yield")
+        
+        self.indent_level -= 1
+        self.emit(indent + "}")
+    
+    fn generate_for_statement(inout self, node_ref: ASTNodeRef):
+        """Generate MLIR for a for loop using scf.for.
+        
+        Args:
+            node_ref: Reference to the for statement node.
+        """
+        if node_ref >= len(self.parser.for_stmt_nodes):
+            return
+        
+        let for_node = self.parser.for_stmt_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # For now, generate a simplified version
+        # TODO: Implement proper iteration over collections
+        # This is a placeholder that assumes range-based iteration
+        
+        let collection_ssa = self.generate_expression(for_node.collection)
+        
+        # Generate scf.for with range bounds
+        # This is simplified - real implementation needs collection iteration
+        self.emit(indent + "// for " + for_node.iterator + " in " + collection_ssa)
+        self.emit(indent + "scf.for %iv = %c0 to %count step %c1 {")
+        self.indent_level += 1
+        
+        # Map iterator to induction variable
+        self.identifier_map[for_node.iterator] = "%iv"
+        
+        # Generate loop body
+        for i in range(len(for_node.body)):
+            self.generate_statement(for_node.body[i])
+        
+        self.indent_level -= 1
+        self.emit(indent + "}")
     
     fn generate_expression(inout self, node_ref: ASTNodeRef) -> String:
         """Generate MLIR for an expression.
@@ -266,6 +428,14 @@ struct MLIRGenerator:
                 let lit_node = self.parser.float_literal_nodes[node_ref]
                 let result = self.next_ssa_value()
                 self.emit(indent + result + " = arith.constant " + lit_node.value + " : f64")
+                return result
+        
+        elif kind == ASTNodeKind.BOOL_LITERAL:
+            if node_ref < len(self.parser.bool_literal_nodes):
+                let lit_node = self.parser.bool_literal_nodes[node_ref]
+                let result = self.next_ssa_value()
+                let bool_val = "true" if lit_node.value else "false"
+                self.emit(indent + result + " = arith.constant " + bool_val + " : i1")
                 return result
         
         elif kind == ASTNodeKind.IDENTIFIER_EXPR:

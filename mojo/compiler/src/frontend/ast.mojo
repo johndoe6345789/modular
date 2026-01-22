@@ -365,6 +365,265 @@ struct StringLiteralNode:
         self.location = location
 
 
+struct BoolLiteralNode:
+    """Represents a boolean literal.
+    
+    Example: True, False
+    """
+    
+    var value: Bool
+    var location: SourceLocation
+    
+    fn __init__(inout self, value: Bool, location: SourceLocation):
+        """Initialize a boolean literal node.
+        
+        Args:
+            value: The boolean value.
+            location: Source location of the literal.
+        """
+        self.value = value
+        self.location = location
+
+
+struct IfStmtNode:
+    """Represents an if statement with optional elif and else blocks.
+    
+    Example:
+        if condition:
+            body
+        elif other_condition:
+            elif_body
+        else:
+            else_body
+    """
+    
+    var condition: ASTNodeRef
+    var then_block: List[ASTNodeRef]
+    var elif_conditions: List[ASTNodeRef]
+    var elif_blocks: List[List[ASTNodeRef]]
+    var else_block: List[ASTNodeRef]
+    var location: SourceLocation
+    
+    fn __init__(inout self, condition: ASTNodeRef, location: SourceLocation):
+        """Initialize an if statement node.
+        
+        Args:
+            condition: The condition expression.
+            location: Source location of the if statement.
+        """
+        self.condition = condition
+        self.then_block = List[ASTNodeRef]()
+        self.elif_conditions = List[ASTNodeRef]()
+        self.elif_blocks = List[List[ASTNodeRef]]()
+        self.else_block = List[ASTNodeRef]()
+        self.location = location
+
+
+struct WhileStmtNode:
+    """Represents a while loop.
+    
+    Example:
+        while condition:
+            body
+    """
+    
+    var condition: ASTNodeRef
+    var body: List[ASTNodeRef]
+    var location: SourceLocation
+    
+    fn __init__(inout self, condition: ASTNodeRef, location: SourceLocation):
+        """Initialize a while statement node.
+        
+        Args:
+            condition: The loop condition expression.
+            location: Source location of the while statement.
+        """
+        self.condition = condition
+        self.body = List[ASTNodeRef]()
+        self.location = location
+
+
+struct ForStmtNode:
+    """Represents a for loop.
+    
+    Example:
+        for item in collection:
+            body
+    """
+    
+    var iterator: String  # Variable name
+    var collection: ASTNodeRef
+    var body: List[ASTNodeRef]
+    var location: SourceLocation
+    
+    fn __init__(inout self, iterator: String, collection: ASTNodeRef, location: SourceLocation):
+        """Initialize a for statement node.
+        
+        Args:
+            iterator: The loop variable name.
+            collection: The collection expression.
+            location: Source location of the for statement.
+        """
+        self.iterator = iterator
+        self.collection = collection
+        self.body = List[ASTNodeRef]()
+        self.location = location
+
+
+struct BreakStmtNode:
+    """Represents a break statement.
+    
+    Example: break
+    """
+    
+    var location: SourceLocation
+    
+    fn __init__(inout self, location: SourceLocation):
+        """Initialize a break statement node.
+        
+        Args:
+            location: Source location of the break statement.
+        """
+        self.location = location
+
+
+struct ContinueStmtNode:
+    """Represents a continue statement.
+    
+    Example: continue
+    """
+    
+    var location: SourceLocation
+    
+    fn __init__(inout self, location: SourceLocation):
+        """Initialize a continue statement node.
+        
+        Args:
+            location: Source location of the continue statement.
+        """
+        self.location = location
+
+
+struct PassStmtNode:
+    """Represents a pass statement (no-op).
+    
+    Example: pass
+    """
+    
+    var location: SourceLocation
+    
+    fn __init__(inout self, location: SourceLocation):
+        """Initialize a pass statement node.
+        
+        Args:
+            location: Source location of the pass statement.
+        """
+        self.location = location
+
+
+struct StructNode:
+    """Represents a struct definition.
+    
+    Example:
+        struct Point:
+            var x: Int
+            var y: Int
+            
+            fn __init__(inout self, x: Int, y: Int):
+                self.x = x
+                self.y = y
+    """
+    
+    var name: String
+    var fields: List[FieldNode]
+    var methods: List[FunctionNode]
+    var location: SourceLocation
+    
+    fn __init__(inout self, name: String, location: SourceLocation):
+        """Initialize a struct node.
+        
+        Args:
+            name: The struct name.
+            location: Source location of the struct definition.
+        """
+        self.name = name
+        self.fields = List[FieldNode]()
+        self.methods = List[FunctionNode]()
+        self.location = location
+
+
+struct FieldNode:
+    """Represents a struct field.
+    
+    Example: var x: Int
+    """
+    
+    var name: String
+    var field_type: TypeNode
+    var default_value: ASTNodeRef  # 0 if no default
+    var location: SourceLocation
+    
+    fn __init__(inout self, name: String, field_type: TypeNode, location: SourceLocation):
+        """Initialize a field node.
+        
+        Args:
+            name: The field name.
+            field_type: The field type.
+            location: Source location of the field.
+        """
+        self.name = name
+        self.field_type = field_type
+        self.default_value = 0
+        self.location = location
+
+
+struct TraitNode:
+    """Represents a trait definition.
+    
+    Example:
+        trait Hashable:
+            fn hash(self) -> Int
+    """
+    
+    var name: String
+    var methods: List[FunctionNode]  # Method signatures
+    var location: SourceLocation
+    
+    fn __init__(inout self, name: String, location: SourceLocation):
+        """Initialize a trait node.
+        
+        Args:
+            name: The trait name.
+            location: Source location of the trait definition.
+        """
+        self.name = name
+        self.methods = List[FunctionNode]()
+        self.location = location
+
+
+struct UnaryExprNode:
+    """Represents a unary expression.
+    
+    Example: -x, !flag, ~bits
+    """
+    
+    var operator: String  # "-", "!", "~", etc.
+    var operand: ASTNodeRef
+    var location: SourceLocation
+    
+    fn __init__(inout self, operator: String, operand: ASTNodeRef, location: SourceLocation):
+        """Initialize a unary expression node.
+        
+        Args:
+            operator: The unary operator.
+            operand: The operand expression.
+            location: Source location of the expression.
+        """
+        self.operator = operator
+        self.operand = operand
+        self.location = location
+
+
 # Type alias for AST node references
 # In a real implementation, this would be a variant/union type or trait object
 alias ASTNodeRef = Int  # Placeholder - would be a proper reference type

@@ -2,13 +2,15 @@
 
 This directory contains the implementation of the open source Mojo compiler as outlined in [the compiler proposal](../proposals/open-source-compiler.md).
 
-## Status: Phase 1 - Complete! 🎉
+## Status: Phase 2 - In Progress 🚀
 
-**Last Verified**: January 22, 2026  
-**Verification Report**: See [VERIFICATION_REPORT.md](VERIFICATION_REPORT.md)
+**Last Updated**: January 22, 2026  
+**Phase 1**: ✅ Complete - Basic compiler with Hello World support  
+**Phase 2**: 🔄 60% Complete - Control flow and structs  
 
-The compiler is **fully functional** and can compile simple Mojo programs to native executables:
+The compiler now supports:
 
+### Phase 1 Features (Complete) ✅
 - ✅ **Lexer**: 100% complete - tokenizes Mojo source code
 - ✅ **Parser**: 100% complete - builds Abstract Syntax Tree
 - ✅ **AST**: 100% complete - comprehensive node definitions
@@ -18,9 +20,28 @@ The compiler is **fully functional** and can compile simple Mojo programs to nat
 - ✅ **LLVM Backend**: 100% complete - full compilation pipeline
 - ✅ **Runtime Library**: 100% complete - C-based runtime with print functions
 
-**Verification Status**: All components have been code-reviewed and verified to have real implementations (not stubs). See [VERIFICATION_REPORT.md](VERIFICATION_REPORT.md) for detailed analysis.
+### Phase 2 Features (In Progress) 🚀
+- ✅ **Control Flow**: If/elif/else, while, for loops - parsing and MLIR generation
+- ✅ **Struct Definitions**: Parsing structs with fields and methods
+- ✅ **Break/Continue/Pass**: Loop control statements
+- ✅ **Boolean Literals**: True/False support
+- ⚠️ **Struct Type Checking**: In progress
+- ⚠️ **Struct Instantiation**: Planned
+- ⚠️ **Method Calls**: Planned
+
+**See [PHASE_2_PROGRESS.md](PHASE_2_PROGRESS.md) for detailed Phase 2 status.**
 
 ### Recent Progress
+
+**Phase 2 Started! (2026-01-22 - Control Flow & Structs)**:
+- ✅ **Control Flow Parsing**: If/elif/else, while, for loops
+- ✅ **Control Flow MLIR**: Full MLIR generation using scf dialect
+- ✅ **Struct Parsing**: Struct definitions with fields and methods
+- ✅ **Break/Continue/Pass**: Loop control statements
+- ✅ **Boolean Support**: Boolean literals and operations
+- ✅ **Test Suite**: Comprehensive tests for control flow
+- ✅ **Examples**: New example programs demonstrating Phase 2 features
+- ✅ **Documentation**: Phase 2 progress tracking
 
 **Phase 1 Complete! (2026-01-22 - Backend & Runtime)**:
 - ✅ **Runtime Library**: Implemented in C with print functions
@@ -29,18 +50,15 @@ The compiler is **fully functional** and can compile simple Mojo programs to nat
 - ✅ **Linking**: Integration with runtime library
 - ✅ **Optimizer**: Basic optimization passes (constant folding, DCE)
 - ✅ **End-to-End**: Full pipeline from source to executable
-- ✅ **Testing**: Comprehensive test suite for all components
-- ✅ **Documentation**: Complete implementation docs
-
-**Previous Updates**:
-- ✅ **MLIR Generation**: Complete implementation (2026-01-22)
-- ✅ **Type Checker**: Full type checking system (2026-01-22)
-- ✅ **Parser**: Complete AST generation (2026-01-22)
-- ✅ **Lexer**: Full tokenization support (initial)
 
 **What Works Now**:
 - ✅ Complete compilation pipeline: Source → Executable
 - ✅ Function definitions with parameters and return types
+- ✅ **If/elif/else statements** 🆕
+- ✅ **While loops** 🆕
+- ✅ **For loops** 🆕
+- ✅ **Struct definitions** 🆕
+- ✅ **Break/continue/pass** 🆕
 - ✅ Arithmetic operations (add, sub, mul)
 - ✅ Function calls with arguments
 - ✅ Print statements (strings, integers, floats, booleans)
