@@ -51,6 +51,37 @@ The compiler now supports:
 **See [PHASE_4_COMPLETION_REPORT.md](PHASE_4_COMPLETION_REPORT.md) for detailed Phase 4 status.**
 **See [PHASE_3_COMPLETION_REPORT.md](PHASE_3_COMPLETION_REPORT.md) for detailed Phase 3 status.**
 
+## CI/CD Integration ✅
+
+The Mojo compiler is fully integrated with the repository's CI/CD pipeline:
+
+- **Automated Testing**: All compiler tests run automatically on every pull request and commit to main
+- **Test Suite**: 14 comprehensive test targets covering all phases and components
+- **Build System**: Bazel-based build and test infrastructure
+- **Test Coverage**:
+  - Core components: Lexer, Parser, Type Checker, MLIR Generator, Backend
+  - Phase 2 features: Control flow, operators, structs
+  - Phase 3 features: Traits, trait conformance, iteration
+  - Phase 4 features: Generics, type inference, ownership
+  - Integration: Full compiler pipeline tests
+
+**Running Tests Locally**:
+```bash
+# Run all compiler tests
+./bazelw test //mojo/compiler:compiler_tests
+
+# Run specific component tests
+./bazelw test //mojo/compiler:test_lexer
+./bazelw test //mojo/compiler:test_type_checker
+```
+
+**CI Configuration**: 
+- **Platforms**: Tests run on `large-oss-linux` runners
+- **Test Filters**: Excludes tests tagged with `skip-external-ci-*` and `requires-network`
+- **Build Filters**: Same filtering applied to build targets
+- **Manual Tests**: End-to-end tests requiring LLVM tools are tagged `manual` and must be run explicitly
+- **Timeout**: Default test timeouts apply (configurable per test target)
+
 ### Recent Progress
 
 **Phase 4 Complete! (2026-01-22 - Generics, Inference & Ownership)**:
@@ -146,6 +177,55 @@ fn main():
 
 ### Testing the Compiler
 
+The compiler includes comprehensive test coverage across all components and phases.
+
+#### Option 1: Using Bazel (Recommended)
+
+Run all compiler tests using Bazel:
+
+```bash
+# Run all compiler tests
+./bazelw test //mojo/compiler:compiler_tests
+
+# Run specific test
+./bazelw test //mojo/compiler:test_lexer
+./bazelw test //mojo/compiler:test_type_checker
+./bazelw test //mojo/compiler:test_mlir_gen
+./bazelw test //mojo/compiler:test_backend
+
+# Run phase-specific tests
+./bazelw test //mojo/compiler:test_phase2_structs
+./bazelw test //mojo/compiler:test_phase3_traits
+./bazelw test //mojo/compiler:test_phase4_generics
+
+# Run end-to-end test (requires LLVM tools)
+./bazelw test //mojo/compiler:test_end_to_end
+```
+
+**Test Suite Structure**:
+- **Core Component Tests**: Lexer, parser, type checker, MLIR generation, backend
+- **Phase 2 Tests**: Control flow, operators, structs
+- **Phase 3 Tests**: Traits, trait conformance, iteration
+- **Phase 4 Tests**: Generics, type inference, ownership
+- **Integration Tests**: Compiler pipeline, end-to-end compilation
+
+#### Option 2: Direct Execution with Mojo
+
+Test individual compiler components directly:
+
+```bash
+# Test core components
+mojo test_lexer.mojo
+mojo test_type_checker.mojo
+mojo test_mlir_gen.mojo
+mojo test_backend.mojo
+
+# Test phase features
+mojo test_operators.mojo
+mojo test_control_flow.mojo
+mojo test_structs.mojo
+```
+
 #### 1. Build the Runtime Library
 
 First, build the C runtime library:
@@ -157,37 +237,17 @@ make
 cd ..
 ```
 
-#### 2. Run Component Tests
+#### 2. End-to-End Compilation Tests
 
-Test individual compiler components:
-
-```bash
-# Test lexer
-mojo test_lexer.mojo
-
-# Test parser (currently has compatibility issues, see note below)
-# mojo test_parser.mojo
-
-# Test type checker
-mojo test_type_checker.mojo
-
-# Test MLIR generation
-mojo test_mlir_gen.mojo
-
-# Test backend
-mojo test_backend.mojo
-```
-
-#### 3. Run End-to-End Compilation Tests
-
-**Note**: These tests require LLVM tools (`llc`) and a C compiler (`cc`):
+**Note**: End-to-end tests require LLVM tools (`llc`) and a C compiler (`cc`):
 
 ```bash
 # Install required tools (Ubuntu/Debian)
 sudo apt-get install llvm gcc
 
 # Run end-to-end tests
-mojo test_end_to_end.mojo
+./bazelw test //mojo/compiler:test_end_to_end
+# Or directly: mojo test_end_to_end.mojo
 ```
 
 This will:
@@ -196,7 +256,7 @@ This will:
 - ✅ Execute the compiled programs
 - ✅ Verify output
 
-#### 4. Check Tool Availability
+#### 3. Check Tool Availability
 
 To see which compilation tools are available:
 
@@ -601,17 +661,18 @@ fn compile_mojo_file(source_path: String, output_path: String):
 
 ## Documentation
 
-- **[PHASE_4_COMPLETION_REPORT.md](PHASE_4_COMPLETION_REPORT.md)** - 🆕 **Complete Phase 4 implementation** with generics, inference, and ownership
+### Active Documentation
+- **[PHASE_4_COMPLETION_REPORT.md](PHASE_4_COMPLETION_REPORT.md)** - Complete Phase 4 implementation with generics, inference, and ownership
 - **[PHASE_3_COMPLETION_REPORT.md](PHASE_3_COMPLETION_REPORT.md)** - Complete Phase 3 implementation with traits, trait conformance, and enhanced codegen
-- **[PHASE_3_FINAL_SUMMARY.md](PHASE_3_FINAL_SUMMARY.md)** - Phase 3 executive summary with metrics and achievements
 - **[PHASE_2_COMPLETION_REPORT.md](PHASE_2_COMPLETION_REPORT.md)** - Complete Phase 2 implementation details
-- **[VERIFICATION_REPORT.md](VERIFICATION_REPORT.md)** - Comprehensive verification of Phase 1 completion with detailed code review
-- **[NEXT_STEPS.md](NEXT_STEPS.md)** - Detailed roadmap for future phases
-- **[IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md)** - Latest implementation updates and progress
-- **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - Detailed implementation progress and technical status
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Comprehensive guide for contributors
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[docs/CICD_INTEGRATION.md](docs/CICD_INTEGRATION.md)** - CI/CD setup and test infrastructure guide
 - **[Open Source Compiler Proposal](../proposals/open-source-compiler.md)** - The full design specification
 - **[examples/](examples/)** - Example Mojo programs
+
+### Archived Documentation
+Historical implementation progress reports and component-specific documentation have been moved to [docs/archive/](docs/archive/) for reference.
 
 ## Contributing
 

@@ -1,4 +1,4 @@
-load("//bazel:api.bzl", "mojo_library")
+load("//bazel:api.bzl", "mojo_library", "mojo_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -10,4 +10,172 @@ mojo_library(
     name = "compiler",
     srcs = [],
     deps = ["//mojo/compiler/src:compiler"],
+)
+
+# Compiler test suite
+test_suite(
+    name = "compiler_tests",
+    tests = [
+        ":test_lexer",
+        ":test_type_checker",
+        ":test_mlir_gen",
+        ":test_backend",
+        ":test_compiler_pipeline",
+        ":test_operators",
+        ":test_control_flow",
+        ":test_structs",
+        ":test_phase2_structs",
+        ":test_phase3_traits",
+        ":test_phase3_iteration",
+        ":test_phase4_generics",
+        ":test_phase4_inference",
+        ":test_phase4_ownership",
+    ],
+)
+
+# Core component tests
+mojo_test(
+    name = "test_lexer",
+    srcs = ["test_lexer.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+    ],
+)
+
+mojo_test(
+    name = "test_type_checker",
+    srcs = ["test_type_checker.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+mojo_test(
+    name = "test_mlir_gen",
+    srcs = ["test_mlir_gen.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+    ],
+)
+
+mojo_test(
+    name = "test_backend",
+    srcs = ["test_backend.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+        "//mojo/compiler/src:codegen",
+    ],
+)
+
+mojo_test(
+    name = "test_compiler_pipeline",
+    srcs = ["test_compiler_pipeline.mojo"],
+    deps = [
+        "//mojo/compiler/src:compiler",
+    ],
+)
+
+# Phase-specific feature tests
+mojo_test(
+    name = "test_operators",
+    srcs = ["test_operators.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+    ],
+)
+
+mojo_test(
+    name = "test_control_flow",
+    srcs = ["test_control_flow.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+    ],
+)
+
+mojo_test(
+    name = "test_structs",
+    srcs = ["test_structs.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+mojo_test(
+    name = "test_phase2_structs",
+    srcs = ["test_phase2_structs.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+    ],
+)
+
+mojo_test(
+    name = "test_phase3_traits",
+    srcs = ["test_phase3_traits.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+mojo_test(
+    name = "test_phase3_iteration",
+    srcs = ["test_phase3_iteration.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+        "//mojo/compiler/src:ir",
+    ],
+)
+
+mojo_test(
+    name = "test_phase4_generics",
+    srcs = ["test_phase4_generics.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+mojo_test(
+    name = "test_phase4_inference",
+    srcs = ["test_phase4_inference.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+mojo_test(
+    name = "test_phase4_ownership",
+    srcs = ["test_phase4_ownership.mojo"],
+    deps = [
+        "//mojo/compiler/src:frontend",
+        "//mojo/compiler/src:semantic",
+    ],
+)
+
+# End-to-end test (requires LLVM tools)
+# Note: This test requires llc and cc to be available
+mojo_test(
+    name = "test_end_to_end",
+    srcs = ["test_end_to_end.mojo"],
+    tags = [
+        "requires-llvm-tools",
+        "manual",  # Don't run by default in CI
+    ],
+    deps = [
+        "//mojo/compiler/src:compiler",
+    ],
 )
