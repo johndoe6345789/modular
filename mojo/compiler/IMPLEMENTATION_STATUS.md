@@ -263,6 +263,9 @@ fn main():
 
 - **Proposal**: [mojo/proposals/open-source-compiler.md](../proposals/open-source-compiler.md)
 - **Architecture**: [README.md](README.md)
+- **Implementation Guide**: [NEXT_STEPS.md](NEXT_STEPS.md) - 🆕 **Detailed roadmap with code examples**
+- **Recent Updates**: [IMPLEMENTATION_UPDATE_2026_01_22.md](IMPLEMENTATION_UPDATE_2026_01_22.md)
+- **PR Summary**: [PR_FINAL_SUMMARY.md](PR_FINAL_SUMMARY.md)
 - **Example**: [examples/hello_world.md](examples/hello_world.md)
 
 ## Contributing
