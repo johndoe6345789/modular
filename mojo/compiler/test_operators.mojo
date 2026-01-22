@@ -109,9 +109,9 @@ fn test_unary_operators():
     print("Testing unary operators...")
     
     let source = """
-fn test_unary(a: Int) -> Int:
+fn test_unary(a: Int, b: Int) -> Int:
     let neg = -a
-    if !a:
+    if !(a > b):
         return neg
     else:
         return a

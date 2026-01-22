@@ -543,17 +543,17 @@ struct MLIRGenerator:
         elif bin_node.operator == "%":
             op_name = "arith.remsi"
         elif bin_node.operator == "==":
-            op_name = "arith.cmpi eq,"
+            op_name = "arith.cmpi eq"
         elif bin_node.operator == "!=":
-            op_name = "arith.cmpi ne,"
+            op_name = "arith.cmpi ne"
         elif bin_node.operator == "<":
-            op_name = "arith.cmpi slt,"
+            op_name = "arith.cmpi slt"
         elif bin_node.operator == "<=":
-            op_name = "arith.cmpi sle,"
+            op_name = "arith.cmpi sle"
         elif bin_node.operator == ">":
-            op_name = "arith.cmpi sgt,"
+            op_name = "arith.cmpi sgt"
         elif bin_node.operator == ">=":
-            op_name = "arith.cmpi sge,"
+            op_name = "arith.cmpi sge"
         elif bin_node.operator == "&&":
             op_name = "arith.andi"
             type_str = "i1"  # Boolean type
@@ -563,7 +563,14 @@ struct MLIRGenerator:
         else:
             op_name = "arith.addi"  # Default
         
-        self.emit(indent + result + " = " + op_name + " " + left_val + ", " + right_val + " : " + type_str)
+        # Generate MLIR based on operation type
+        if "arith.cmpi" in op_name:
+            # Comparison operations need special syntax: arith.cmpi <predicate>, operands
+            # The result type is i1 (boolean)
+            self.emit(indent + result + " = " + op_name + ", " + left_val + ", " + right_val + " : " + type_str)
+        else:
+            # Standard binary operations
+            self.emit(indent + result + " = " + op_name + " " + left_val + ", " + right_val + " : " + type_str)
         return result
     
     fn generate_unary_expr(inout self, node_ref: ASTNodeRef) -> String:
@@ -587,17 +594,19 @@ struct MLIRGenerator:
         
         # Determine the operation
         if unary_node.operator == "-":
-            # Negation: 0 - operand
+            # Negation: 0 - operand (for numeric types)
             let zero = self.next_ssa_value()
             self.emit(indent + zero + " = arith.constant 0 : i64")
             self.emit(indent + result + " = arith.subi " + zero + ", " + operand_val + " : i64")
         elif unary_node.operator == "!":
-            # Logical NOT: xor with true
+            # Logical NOT: xor with true (for boolean types)
+            # Note: The operand should be i1 (boolean), typically from a comparison
+            # Example: !(a > b) where (a > b) produces i1
             let true_val = self.next_ssa_value()
             self.emit(indent + true_val + " = arith.constant true : i1")
             self.emit(indent + result + " = arith.xori " + operand_val + ", " + true_val + " : i1")
         elif unary_node.operator == "~":
-            # Bitwise NOT: xor with -1
+            # Bitwise NOT: xor with -1 (for integer types)
             let neg_one = self.next_ssa_value()
             self.emit(indent + neg_one + " = arith.constant -1 : i64")
             self.emit(indent + result + " = arith.xori " + operand_val + ", " + neg_one + " : i64")
