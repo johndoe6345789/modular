@@ -26,6 +26,7 @@ It handles:
 from collections import List
 from .lexer import Lexer, Token, TokenKind
 from .source_location import SourceLocation
+from .node_store import NodeStore
 from .ast import (
     ModuleNode,
     FunctionNode,
@@ -40,6 +41,7 @@ from .ast import (
     FloatLiteralNode,
     StringLiteralNode,
     ASTNodeRef,
+    ASTNodeKind,
 )
 
 
@@ -74,6 +76,7 @@ struct Parser:
     var lexer: Lexer
     var current_token: Token
     var errors: List[String]
+    var node_store: NodeStore  # Tracks node kinds
     
     # Node storage for Phase 1 - parser owns all nodes
     var return_nodes: List[ReturnStmtNode]
@@ -96,6 +99,7 @@ struct Parser:
         # Get the first token
         self.current_token = self.lexer.next_token()
         self.errors = List[String]()
+        self.node_store = NodeStore()
         
         # Initialize node storage
         self.return_nodes = List[ReturnStmtNode]()
@@ -237,7 +241,10 @@ struct Parser:
         # Create and store return statement node
         let return_node = ReturnStmtNode(value, location)
         self.return_nodes.append(return_node)
-        return len(self.return_nodes) - 1  # Return index as reference
+        let node_ref = len(self.return_nodes) - 1
+        # Register with node store
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.RETURN_STMT)
+        return node_ref
     
     fn parse_var_declaration(inout self) -> ASTNodeRef:
         """Parse a variable declaration.
@@ -273,7 +280,10 @@ struct Parser:
         # Create and store variable declaration node
         let var_decl = VarDeclNode(name, var_type, init, location)
         self.var_decl_nodes.append(var_decl)
-        return len(self.var_decl_nodes) - 1
+        let node_ref = len(self.var_decl_nodes) - 1
+        # Register with node store
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.VAR_DECL)
+        return node_ref
     
     fn parse_expression_statement(inout self) -> ASTNodeRef:
         """Parse an expression statement.
@@ -325,7 +335,9 @@ struct Parser:
             # Create binary expression node
             let binary_node = BinaryExprNode(operator, left, right, op_location)
             self.binary_expr_nodes.append(binary_node)
-            left = len(self.binary_expr_nodes) - 1
+            let node_ref = len(self.binary_expr_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.BINARY_EXPR)
+            left = node_ref
         
         return left
     
@@ -387,7 +399,9 @@ struct Parser:
             self.advance()
             let int_node = IntegerLiteralNode(value, location)
             self.int_literal_nodes.append(int_node)
-            return len(self.int_literal_nodes) - 1
+            let node_ref = len(self.int_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.INTEGER_LITERAL)
+            return node_ref
         
         # Float literal
         if self.current_token.kind.kind == TokenKind.FLOAT_LITERAL:
@@ -396,7 +410,9 @@ struct Parser:
             self.advance()
             let float_node = FloatLiteralNode(value, location)
             self.float_literal_nodes.append(float_node)
-            return len(self.float_literal_nodes) - 1
+            let node_ref = len(self.float_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.FLOAT_LITERAL)
+            return node_ref
         
         # String literal
         if self.current_token.kind.kind == TokenKind.STRING_LITERAL:
@@ -405,7 +421,9 @@ struct Parser:
             self.advance()
             let string_node = StringLiteralNode(value, location)
             self.string_literal_nodes.append(string_node)
-            return len(self.string_literal_nodes) - 1
+            let node_ref = len(self.string_literal_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.STRING_LITERAL)
+            return node_ref
         
         # Identifier or function call
         if self.current_token.kind.kind == TokenKind.IDENTIFIER:
@@ -420,7 +438,9 @@ struct Parser:
             # Just an identifier
             let ident_node = IdentifierExprNode(name, location)
             self.identifier_nodes.append(ident_node)
-            return len(self.identifier_nodes) - 1
+            let node_ref = len(self.identifier_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.IDENTIFIER_EXPR)
+            return node_ref
         
         # Parenthesized expression
         if self.current_token.kind.kind == TokenKind.LEFT_PAREN:
@@ -463,7 +483,9 @@ struct Parser:
         
         # Store and return call expression node
         self.call_expr_nodes.append(call_node)
-        return len(self.call_expr_nodes) - 1
+        let node_ref = len(self.call_expr_nodes) - 1
+        _ = self.node_store.register_node(node_ref, ASTNodeKind.CALL_EXPR)
+        return node_ref
     
     fn parse_type(inout self) -> TypeNode:
         """Parse a type annotation.
