@@ -656,7 +656,8 @@ struct Parser:
         Returns:
             The expression node reference.
         """
-        var left = self.parse_primary_expression()
+        # Check for unary operators first
+        var left = self.parse_unary_expression()
         
         # Parse operators with precedence
         while True:
@@ -686,6 +687,33 @@ struct Parser:
         
         return left
     
+    fn parse_unary_expression(inout self) -> ASTNodeRef:
+        """Parse unary expressions (-, !, ~).
+        
+        Returns:
+            The expression node reference.
+        """
+        # Check for unary operators
+        if (self.current_token.kind.kind == TokenKind.MINUS or
+            self.current_token.kind.kind == TokenKind.EXCLAMATION or
+            self.current_token.kind.kind == TokenKind.TILDE):
+            let operator = self.current_token.text
+            let location = self.current_token.location
+            self.advance()  # Consume operator
+            
+            # Parse the operand (recursively to handle multiple unary operators)
+            let operand = self.parse_unary_expression()
+            
+            # Create unary expression node
+            let unary_node = UnaryExprNode(operator, operand, location)
+            self.unary_expr_nodes.append(unary_node)
+            let node_ref = len(self.unary_expr_nodes) - 1
+            _ = self.node_store.register_node(node_ref, ASTNodeKind.UNARY_EXPR)
+            return node_ref
+        
+        # Not a unary operator, parse primary expression
+        return self.parse_primary_expression()
+    
     fn is_binary_operator(self, kind: Int) -> Bool:
         """Check if token kind is a binary operator.
         
@@ -700,7 +728,8 @@ struct Parser:
                 kind == TokenKind.PERCENT or kind == TokenKind.DOUBLE_STAR or
                 kind == TokenKind.EQUAL_EQUAL or kind == TokenKind.NOT_EQUAL or
                 kind == TokenKind.LESS or kind == TokenKind.LESS_EQUAL or
-                kind == TokenKind.GREATER or kind == TokenKind.GREATER_EQUAL)
+                kind == TokenKind.GREATER or kind == TokenKind.GREATER_EQUAL or
+                kind == TokenKind.DOUBLE_AMPERSAND or kind == TokenKind.DOUBLE_PIPE)
     
     fn get_operator_precedence(self, kind: Int) -> Int:
         """Get operator precedence level.
@@ -711,23 +740,31 @@ struct Parser:
         Returns:
             Precedence level (higher = tighter binding).
         """
+        # Logical OR: ||
+        if kind == TokenKind.DOUBLE_PIPE:
+            return 1
+        
+        # Logical AND: &&
+        if kind == TokenKind.DOUBLE_AMPERSAND:
+            return 2
+        
         # Comparison operators: ==, !=, <, <=, >, >=
         if (kind == TokenKind.EQUAL_EQUAL or kind == TokenKind.NOT_EQUAL or
             kind == TokenKind.LESS or kind == TokenKind.LESS_EQUAL or
             kind == TokenKind.GREATER or kind == TokenKind.GREATER_EQUAL):
-            return 1
+            return 3
         
         # Addition and subtraction: +, -
         if kind == TokenKind.PLUS or kind == TokenKind.MINUS:
-            return 2
+            return 4
         
         # Multiplication, division, modulo: *, /, %
         if kind == TokenKind.STAR or kind == TokenKind.SLASH or kind == TokenKind.PERCENT:
-            return 3
+            return 5
         
         # Exponentiation: **
         if kind == TokenKind.DOUBLE_STAR:
-            return 4
+            return 6
         
         return 0  # Unknown operator
     

@@ -453,6 +453,9 @@ struct MLIRGenerator:
         elif kind == ASTNodeKind.BINARY_EXPR:
             return self.generate_binary_expr(node_ref)
         
+        elif kind == ASTNodeKind.UNARY_EXPR:
+            return self.generate_unary_expr(node_ref)
+        
         return "%0"
     
     fn generate_call(inout self, node_ref: ASTNodeRef) -> String:
@@ -525,8 +528,10 @@ struct MLIRGenerator:
         let right_val = self.generate_expression(bin_node.right)
         let result = self.next_ssa_value()
         
-        # Determine the operation
+        # Determine the operation and type
         var op_name = ""
+        var type_str = "i64"  # Default for arithmetic
+        
         if bin_node.operator == "+":
             op_name = "arith.addi"
         elif bin_node.operator == "-":
@@ -549,13 +554,57 @@ struct MLIRGenerator:
             op_name = "arith.cmpi sgt,"
         elif bin_node.operator == ">=":
             op_name = "arith.cmpi sge,"
+        elif bin_node.operator == "&&":
+            op_name = "arith.andi"
+            type_str = "i1"  # Boolean type
+        elif bin_node.operator == "||":
+            op_name = "arith.ori"
+            type_str = "i1"  # Boolean type
         else:
             op_name = "arith.addi"  # Default
         
-        # Get the type (assume i64 for now)
-        let type_str = "i64"
-        
         self.emit(indent + result + " = " + op_name + " " + left_val + ", " + right_val + " : " + type_str)
+        return result
+    
+    fn generate_unary_expr(inout self, node_ref: ASTNodeRef) -> String:
+        """Generate unary operation.
+        
+        Args:
+            node_ref: Reference to the unary expression node.
+            
+        Returns:
+            The result reference.
+        """
+        if node_ref >= len(self.parser.unary_expr_nodes):
+            return "%0"
+        
+        let unary_node = self.parser.unary_expr_nodes[node_ref]
+        let indent = self.get_indent()
+        
+        # Generate operand
+        let operand_val = self.generate_expression(unary_node.operand)
+        let result = self.next_ssa_value()
+        
+        # Determine the operation
+        if unary_node.operator == "-":
+            # Negation: 0 - operand
+            let zero = self.next_ssa_value()
+            self.emit(indent + zero + " = arith.constant 0 : i64")
+            self.emit(indent + result + " = arith.subi " + zero + ", " + operand_val + " : i64")
+        elif unary_node.operator == "!":
+            # Logical NOT: xor with true
+            let true_val = self.next_ssa_value()
+            self.emit(indent + true_val + " = arith.constant true : i1")
+            self.emit(indent + result + " = arith.xori " + operand_val + ", " + true_val + " : i1")
+        elif unary_node.operator == "~":
+            # Bitwise NOT: xor with -1
+            let neg_one = self.next_ssa_value()
+            self.emit(indent + neg_one + " = arith.constant -1 : i64")
+            self.emit(indent + result + " = arith.xori " + operand_val + ", " + neg_one + " : i64")
+        else:
+            # Unknown operator, just return operand
+            return operand_val
+        
         return result
     
     fn get_expression_type(self, node_ref: ASTNodeRef) -> String:
