@@ -18,7 +18,40 @@ It is responsible for converting source text into an Abstract Syntax Tree (AST).
 """
 
 from .lexer import Lexer, Token, TokenKind
-from .parser import Parser, AST, ASTNode
+from .parser import Parser, AST
 from .source_location import SourceLocation
+from .ast import (
+    ModuleNode,
+    FunctionNode,
+    ParameterNode,
+    TypeNode,
+    VarDeclNode,
+    ReturnStmtNode,
+    BinaryExprNode,
+    CallExprNode,
+    IdentifierExprNode,
+    IntegerLiteralNode,
+    FloatLiteralNode,
+    StringLiteralNode,
+)
 
-__all__ = ["Lexer", "Token", "TokenKind", "Parser", "AST", "ASTNode", "SourceLocation"]
+__all__ = [
+    "Lexer",
+    "Token",
+    "TokenKind",
+    "Parser",
+    "AST",
+    "SourceLocation",
+    "ModuleNode",
+    "FunctionNode",
+    "ParameterNode",
+    "TypeNode",
+    "VarDeclNode",
+    "ReturnStmtNode",
+    "BinaryExprNode",
+    "CallExprNode",
+    "IdentifierExprNode",
+    "IntegerLiteralNode",
+    "FloatLiteralNode",
+    "StringLiteralNode",
+]
