@@ -17,7 +17,9 @@ This module lowers the typed AST to MLIR representation using
 the Mojo dialect and standard MLIR dialects (arith, scf, func, etc.).
 """
 
-from ..frontend.parser import AST, ASTNode
+from collections import List
+from ..frontend.parser import AST
+from ..frontend.ast import ModuleNode, ASTNodeRef
 from .mojo_dialect import MojoDialect
 
 
@@ -57,20 +59,25 @@ struct MLIRGenerator:
         self.emit("}")
         return self.output
     
-    fn generate_node(inout self, node: ASTNode):
-        """Generate MLIR for a single AST node.
+    fn generate_node(inout self, node: ModuleNode):
+        """Generate MLIR for a module node.
         
         Args:
-            node: The node to generate MLIR for.
+            node: The module node to generate MLIR for.
         """
         # TODO: Implement node-specific MLIR generation
-        pass
+        # For now, iterate through declarations
+        for i in range(len(node.declarations)):
+            let decl = node.declarations[i]
+            # Generate MLIR for each declaration
+            # self.generate_function(decl)
+            pass
     
-    fn generate_function(inout self, node: ASTNode):
+    fn generate_function(inout self, node: ASTNodeRef):
         """Generate MLIR for a function definition.
         
         Args:
-            node: The function node.
+            node: Reference to the function node.
         """
         # TODO: Implement function MLIR generation
         # Example output:
@@ -79,11 +86,11 @@ struct MLIRGenerator:
         # }
         pass
     
-    fn generate_expression(inout self, node: ASTNode) -> String:
+    fn generate_expression(inout self, node: ASTNodeRef) -> String:
         """Generate MLIR for an expression.
         
         Args:
-            node: The expression node.
+            node: Reference to the expression node.
             
         Returns:
             The MLIR value name (e.g., "%0", "%result").
@@ -91,11 +98,11 @@ struct MLIRGenerator:
         # TODO: Implement expression MLIR generation
         return "%0"
     
-    fn generate_statement(inout self, node: ASTNode):
+    fn generate_statement(inout self, node: ASTNodeRef):
         """Generate MLIR for a statement.
         
         Args:
-            node: The statement node.
+            node: Reference to the statement node.
         """
         # TODO: Implement statement MLIR generation
         pass
