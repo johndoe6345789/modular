@@ -17,7 +17,7 @@ This module lowers the typed AST to MLIR representation using
 the Mojo dialect and standard MLIR dialects (arith, scf, func, etc.).
 """
 
-from collections import List
+from collections import Dict, List
 from ..frontend.parser import AST, Parser
 from ..frontend.ast import (
     ModuleNode,
@@ -51,6 +51,7 @@ struct MLIRGenerator:
     var parser: Parser  # Reference to parser for node access
     var ssa_counter: Int  # Counter for SSA value names
     var indent_level: Int  # Current indentation level
+    var identifier_map: Dict[String, String]  # Maps identifier names to SSA values
     
     fn __init__(inout self, owned parser: Parser):
         """Initialize the MLIR generator.
@@ -63,6 +64,7 @@ struct MLIRGenerator:
         self.parser = parser^
         self.ssa_counter = 0
         self.indent_level = 0
+        self.identifier_map = Dict[String, String]()
     
     fn next_ssa_value(inout self) -> String:
         """Generate the next SSA value name.
@@ -118,21 +120,25 @@ struct MLIRGenerator:
         Args:
             func: The function node to generate.
         """
-        # Reset SSA counter for each function
+        # Reset SSA counter and identifier map for each function
         self.ssa_counter = 0
+        self.identifier_map = Dict[String, String]()
         
         let indent = self.get_indent()
         
         # Build function signature
         var signature = indent + "func.func @" + func.name + "("
         
-        # Add parameters
+        # Add parameters and track in identifier map
         for i in range(len(func.parameters)):
             if i > 0:
                 signature += ", "
             let param = func.parameters[i]
             let param_type = self.emit_type(param.param_type.name)
-            signature += "%arg" + str(i) + ": " + param_type
+            let arg_name = "%arg" + str(i)
+            signature += arg_name + ": " + param_type
+            # Track parameter name to SSA value mapping
+            self.identifier_map[param.name] = arg_name
         
         signature += ")"
         
@@ -220,7 +226,9 @@ struct MLIRGenerator:
             if node_ref < len(self.parser.var_decl_nodes):
                 let var_node = self.parser.var_decl_nodes[node_ref]
                 if var_node.initializer != 0:
-                    _ = self.generate_expression(var_node.initializer)
+                    let value_ssa = self.generate_expression(var_node.initializer)
+                    # Track the identifier mapping
+                    self.identifier_map[var_node.name] = value_ssa
         elif kind >= ASTNodeKind.BINARY_EXPR and kind <= ASTNodeKind.BOOL_LITERAL:
             # Expression statement (e.g., function call)
             _ = self.generate_expression(node_ref)
@@ -263,9 +271,11 @@ struct MLIRGenerator:
         elif kind == ASTNodeKind.IDENTIFIER_EXPR:
             if node_ref < len(self.parser.identifier_nodes):
                 let id_node = self.parser.identifier_nodes[node_ref]
-                # For now, return the identifier with arg prefix
-                # In a real implementation, we'd look up the SSA value
-                return "%arg0"  # Placeholder
+                # Look up the identifier in the map
+                if id_node.name in self.identifier_map:
+                    return self.identifier_map[id_node.name]
+                # If not found, return the name itself (could be a parameter)
+                return id_node.name
         
         elif kind == ASTNodeKind.CALL_EXPR:
             return self.generate_call(node_ref)

@@ -83,6 +83,7 @@ struct LLVMBackend:
         var has_return_type = False
         var string_constants = String("")
         var string_counter = 0
+        var string_lengths = List[Int]()  # Track string lengths by index
         
         for line in lines:
             let trimmed = line[].strip()
@@ -170,6 +171,7 @@ struct LLVMBackend:
                         string_constants += const_name + " = private constant ["
                         string_constants += str(str_len) + " x i8] c\""
                         string_constants += string_val + "\\00\"\n"
+                        string_lengths.append(str_len)
                         string_counter += 1
                     continue
                 
@@ -238,11 +240,12 @@ struct LLVMBackend:
                         if "!mojo.string" in type_part:
                             # Need to get the string constant
                             let str_idx = string_counter - 1  # Last string added
-                            result += "  %str_ptr = getelementptr ["
-                            # This is simplified - would need to track string lengths
-                            result += "14 x i8], [14 x i8]* @.str" + str(str_idx)
-                            result += ", i32 0, i32 0\n"
-                            result += "  call void @_mojo_print_string(i8* %str_ptr)\n"
+                            if str_idx >= 0 and str_idx < len(string_lengths):
+                                let str_len = string_lengths[str_idx]
+                                result += "  %str_ptr = getelementptr ["
+                                result += str(str_len) + " x i8], [" + str(str_len) + " x i8]* @.str" + str(str_idx)
+                                result += ", i32 0, i32 0\n"
+                                result += "  call void @_mojo_print_string(i8* %str_ptr)\n"
                         elif "i64" in type_part:
                             result += "  call void @_mojo_print_int(i64 " + value + ")\n"
                         elif "f64" in type_part:

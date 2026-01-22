@@ -26,6 +26,9 @@
  * Print a null-terminated string to stdout
  */
 void _mojo_print_string(const char* str) {
+    if (str == NULL) {
+        return;
+    }
     printf("%s\n", str);
     fflush(stdout);
 }

@@ -28,7 +28,7 @@ Tests the example programs: hello_world.mojo and simple_function.mojo
 
 from src.frontend.lexer import Lexer, TokenKind
 from src.frontend.parser import Parser
-from src.typesys.type_checker import TypeChecker
+from src.semantic.type_checker import TypeChecker
 from src.ir.mlir_gen import MLIRGenerator
 from src.codegen.optimizer import Optimizer
 from src.codegen.llvm_backend import LLVMBackend
