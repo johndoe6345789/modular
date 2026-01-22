@@ -656,17 +656,17 @@ fn compile_mojo_file(source_path: String, output_path: String):
 
 ## Documentation
 
-- **[PHASE_4_COMPLETION_REPORT.md](PHASE_4_COMPLETION_REPORT.md)** - 🆕 **Complete Phase 4 implementation** with generics, inference, and ownership
+### Active Documentation
+- **[PHASE_4_COMPLETION_REPORT.md](PHASE_4_COMPLETION_REPORT.md)** - Complete Phase 4 implementation with generics, inference, and ownership
 - **[PHASE_3_COMPLETION_REPORT.md](PHASE_3_COMPLETION_REPORT.md)** - Complete Phase 3 implementation with traits, trait conformance, and enhanced codegen
-- **[PHASE_3_FINAL_SUMMARY.md](PHASE_3_FINAL_SUMMARY.md)** - Phase 3 executive summary with metrics and achievements
 - **[PHASE_2_COMPLETION_REPORT.md](PHASE_2_COMPLETION_REPORT.md)** - Complete Phase 2 implementation details
-- **[VERIFICATION_REPORT.md](VERIFICATION_REPORT.md)** - Comprehensive verification of Phase 1 completion with detailed code review
-- **[NEXT_STEPS.md](NEXT_STEPS.md)** - Detailed roadmap for future phases
-- **[IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md)** - Latest implementation updates and progress
-- **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - Detailed implementation progress and technical status
 - **[DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)** - Comprehensive guide for contributors
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
 - **[Open Source Compiler Proposal](../proposals/open-source-compiler.md)** - The full design specification
 - **[examples/](examples/)** - Example Mojo programs
+
+### Archived Documentation
+Historical implementation progress reports and component-specific documentation have been moved to [docs/archive/](docs/archive/) for reference.
 
 ## Contributing
 
