@@ -17,6 +17,10 @@ This module provides memory allocation and deallocation functions
 that integrate with the system allocator (malloc/free).
 """
 
+from builtin.anytype import AnyType
+from builtin.int import Int
+from builtin.none import NoneType
+from memory import UnsafePointer
 from sys.ffi import external_call
 
 

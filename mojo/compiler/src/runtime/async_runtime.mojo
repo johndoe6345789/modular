@@ -16,6 +16,9 @@
 This module provides runtime support for async/await and coroutines.
 """
 
+from builtin.anytype import AnyType
+from memory import UnsafePointer
+
 
 struct CoroutineHandle:
     """Handle to a coroutine.

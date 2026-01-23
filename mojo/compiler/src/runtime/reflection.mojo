@@ -16,6 +16,10 @@
 This module provides runtime type information (RTTI) for Mojo types.
 """
 
+from builtin.anytype import AnyType
+from builtin.int import Int
+from collections.string import String
+
 
 struct TypeInfo:
     """Runtime type information.
