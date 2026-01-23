@@ -26,4 +26,5 @@ from .memory import malloc, free, realloc
 from .async_runtime import AsyncExecutor
 from .reflection import get_type_info, type_name
 
-__all__ = ["malloc", "free", "realloc", "AsyncExecutor", "get_type_info", "type_name"]
+# Note: __all__ is not supported at file scope in Mojo
+# Exported symbols: malloc, free, realloc, AsyncExecutor, get_type_info, type_name
